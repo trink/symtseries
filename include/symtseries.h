@@ -5,6 +5,8 @@
 
 /* TODO: get rid of it! (dynamic breakpoint estimation + big integers) */
 #define MAX_CORDINALITY 3
+#define STAT_EPS 1e-2
+
 /* Breakpoints used in iSAX symbol estimation */
 extern const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1];
 

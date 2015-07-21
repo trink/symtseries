@@ -57,11 +57,26 @@ static char *test_to_iSAX_sample() {
     return NULL;
 }
 
+static char *test_to_iSAX_stationary() {
+    double seq[8] = {8 + STAT_EPS, 8 - STAT_EPS, 8, 8, 8, 8 + STAT_EPS, 8, 8};
+    for (size_t pow = 1; pow <= MAX_CORDINALITY; ++pow) {
+        for (size_t w = 1; w <= 8; w *= 2) {
+            unsigned int *sax = to_iSAX(seq, 8, w, pow);
+            for (size_t i = 0; i < w; ++i) {
+                mu_assert(sax[i] == (1 << (pow-1)), 
+                        "#%zu element of stationary sequence encoded into %u", i, sax[i]);
+            }
+        }
+    }
+    return NULL;
+}
+
 static char* all_tests() {
     mu_run_test(test_get_symbol_zero);
     mu_run_test(test_get_symbol_breaks);
     mu_run_test(test_to_iSAX_normalization);
     mu_run_test(test_to_iSAX_sample);
+    mu_run_test(test_to_iSAX_stationary);
     return NULL;
 }
 

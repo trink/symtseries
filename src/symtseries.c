@@ -9,8 +9,6 @@
 #include <math.h>
 #include <string.h>
 
-#define STAT_EPS 1e-2
-
 const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1] = 
    {{-DBL_MAX, 0.0, DBL_MAX, 0, 0, 0, 0, 0, 0},
     {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
