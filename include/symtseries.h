@@ -1,3 +1,11 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* This implementation is based on several SAX papers, 
+ * the latest of which can be found here:
+ * http://www.cs.ucr.edu/~eamonn/iSAX_2.0.pdf */
+
 #ifndef _SYMTSERIES_H_
 #define _SYMTSERIES_H_
 #include <float.h>
@@ -6,9 +14,6 @@
 /* TODO: get rid of it! (dynamic breakpoint estimation + big integers) */
 #define MAX_CORDINALITY 3
 #define STAT_EPS 1e-2
-
-/* Breakpoints used in iSAX symbol estimation */
-extern const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1];
 
 /*
  * Returns the coresponding iSAX binary symbol 

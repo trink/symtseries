@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/* This implementation is based on several SAX papers, 
+ * the latest of which can be found here:
+ * http://www.cs.ucr.edu/~eamonn/iSAX_2.0.pdf */
+
 #include "symtseries.h"
 
 #include <float.h>
@@ -9,6 +13,7 @@
 #include <math.h>
 #include <string.h>
 
+/* Breakpoints used in iSAX symbol estimation */
 const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1] = 
    {{-DBL_MAX, 0.0, DBL_MAX, 0, 0, 0, 0, 0, 0},
     {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
