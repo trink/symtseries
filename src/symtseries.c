@@ -14,17 +14,17 @@
 #include <string.h>
 
 /* Breakpoints used in iSAX symbol estimation */
-const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1] = 
+const double breaks[STS_MAX_CORDINALITY][(1 << STS_MAX_CORDINALITY) + 1] = 
    {{-DBL_MAX, 0.0, DBL_MAX, 0, 0, 0, 0, 0, 0},
     {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
     {-DBL_MAX, -1.15, -0.67, -0.32, 0.0, 0.32, 0.67, 1.15, DBL_MAX}};
 
-sax_symbol get_symbol(double value, unsigned int cardinality) {
-    unsigned int pow = 1 << cardinality;
+sax_symbol get_symbol(double value, unsigned int c) {
+    unsigned int pow = 1 << c;
     for (unsigned int i = 0; i < pow; ++i) {
-        if (value >= breaks[cardinality-1][i] 
+        if (value >= breaks[c-1][i] 
             &&
-            value < breaks[cardinality-1][i+1]) {
+            value < breaks[c-1][i+1]) {
             return pow - i - 1;
         }
     }
@@ -43,7 +43,7 @@ double *normalize(double *series, size_t n_values) {
     std /= n_values;
     std = sqrt(std);
     double *normalized = malloc(n_values * sizeof(double));
-    if (std < STAT_EPS) {
+    if (std < STS_STAT_EPS) {
         // to prevent infinite-scaling for almost-stationary sequencies
         memset(normalized, 0, n_values * sizeof(double));
     } else {
@@ -54,8 +54,8 @@ double *normalize(double *series, size_t n_values) {
     return normalized;
 }
 
-sax_symbol *to_iSAX(double *series, size_t n_values, int w, int c) {
-    if (n_values % w != 0 || c > MAX_CORDINALITY) {
+sax_symbol *sts_to_iSAX(double *series, size_t n_values, int w, int c) {
+    if (n_values % w != 0 || c > STS_MAX_CORDINALITY) {
         // TODO: Not supported yet, fix
         return NULL;
     }

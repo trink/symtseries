@@ -23,7 +23,7 @@ void to_binary(unsigned int n, char *buffer, int c) {
 }
 
 void show_iSAX(double *series, size_t n_values, int w, int c) {
-    sax_symbol *iSAX_word = to_iSAX(series, n_values, w, c);
+    sax_symbol *iSAX_word = sts_to_iSAX(series, n_values, w, c);
     if (iSAX_word == NULL) {
         printf("OOps, yet unable to manage given params\n");
         return;
