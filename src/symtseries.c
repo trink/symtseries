@@ -54,7 +54,7 @@ double *normalize(double *series, size_t n_values) {
     return normalized;
 }
 
-sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c) {
+sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
     if (n_values % w != 0 || c > STS_MAX_CORDINALITY) {
         // TODO: Not supported yet, fix
         return NULL;
@@ -62,7 +62,7 @@ sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c) {
     series = normalize(series, n_values);
     sax_word encoded_series = (sax_word) malloc(w * sizeof(sax_symbol));
     unsigned int frame_size = n_values / w;
-    for (int i = 0; i < w; ++i) {
+    for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
         for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
             average += series[j];
@@ -72,4 +72,27 @@ sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c) {
     }
     free(series);
     return encoded_series;
+}
+
+/* TODO: precompute dist table */
+double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
+    if (abs(a - b) <= 1) {
+        return 0;
+    }
+    if (a < b) {
+        sax_symbol c_ = a;
+        a = b;
+        b = c_;
+    }
+    return breaks[c][a-1] - breaks[c][b];
+}
+
+double sts_mindist(sax_word a, sax_word b, size_t w, size_t n, unsigned int c) {
+    double distance = 0, sym_distance;
+    for (size_t i = 0; i < w; ++i) {
+        sym_distance = sym_dist(a[i], b[i], c);
+        distance += sym_distance * sym_distance;
+    }
+    distance = sqrt((double) n / (double) w) * sqrt(distance);
+    return 0;
 }

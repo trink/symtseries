@@ -24,7 +24,14 @@ typedef sax_symbol *sax_word;
  * @param w: length of returned code
  * TODO: support cardinalities which are not powers of 2
  */
-sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c);
+sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c);
+
+/*
+ * Returns the lowerbounding approximation on distance 
+ * between sax-represented series a and b.
+ * @param a, b: sax representations of sequences
+ */
+double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c);
 
 #ifdef STS_COMPILE_UNIT_TESTS
 /*
