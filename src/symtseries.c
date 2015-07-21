@@ -24,7 +24,7 @@ unsigned int get_symbol(double value, int cardinality) {
     for (unsigned int i = 0; i < pow; ++i) {
         if (value >= breaks[cardinality-1][i] 
             &&
-            value <= breaks[cardinality-1][i+1]) {
+            value < breaks[cardinality-1][i+1]) {
             return pow - i - 1;
         }
     }

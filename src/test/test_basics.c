@@ -15,14 +15,14 @@
 static char *test_get_symbol_zero() {
     for (size_t pow = 1; pow <= MAX_CORDINALITY; ++pow) {
         unsigned int zero_encoded = get_symbol(0.0, pow);
-        mu_assert(zero_encoded == (1 << (pow-1)), 
+        mu_assert(zero_encoded == (1 << (pow-1)) - 1, 
                 "zero encoded into %u for cardinality %zu", zero_encoded, pow);
     }
     return NULL;
 }
 
 static char *test_get_symbol_breaks() {
-    double breaks[8] = {1.16, 1.15, 0.67, 0.32, 0, -0.32, -0.67, -1.15};
+    double breaks[8] = {1.15, 0.67, 0.32, 0, -0.32, -0.67, -1.15, -1.16};
     for (unsigned int i = 0; i < 8; ++i) {
         unsigned int break_encoded = get_symbol(breaks[i], 3);
         mu_assert(break_encoded == i, "%lf encoded into %u instead of %u", 
@@ -65,7 +65,7 @@ static char *test_to_iSAX_stationary() {
         for (size_t w = 1; w <= 8; w *= 2) {
             unsigned int *sax = to_iSAX(seq, 8, w, pow);
             for (size_t i = 0; i < w; ++i) {
-                mu_assert(sax[i] == (1 << (pow-1)), 
+                mu_assert(sax[i] == (1 << (pow-1)) - 1, 
                         "#%zu element of stationary sequence encoded into %u", i, sax[i]);
             }
         }
