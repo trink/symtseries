@@ -17,4 +17,6 @@ add_library(symtseries SHARED ${SYMTSERIES_SRC})
 
 install(TARGETS symtseries DESTINATION bin)
 
-add_subdirectory(test)
+if (DEFINED STS_COMPILE_UNIT_TESTS)
+    add_subdirectory(test)
+endif()
