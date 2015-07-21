@@ -15,21 +15,23 @@
 #define MAX_CORDINALITY 3
 #define STAT_EPS 1e-2
 
-#ifdef STS_COMPILE_UNIT_TESTS
-/*
- * Returns the coresponding iSAX binary symbol 
- * (as in the original paper: (b_c, INF] corresponding to 0 and so forth)
- */
-unsigned int get_symbol(double value, int cardinality);
-
-double *normalize(double *series, size_t n_values);
-#endif // STS_COMPILE_UNIT_TESTS
+typedef unsigned char sax_symbol;
 
 /*
  * Returns symbolic representation of series in binary notation
  * @param c: 2^c would be code's cardinality
  * @param w: length of returned code
  */
-unsigned int *to_iSAX(double *series, size_t n_values, int w, int c);
+sax_symbol *to_iSAX(double *series, size_t n_values, int w, int c);
+
+#ifdef STS_COMPILE_UNIT_TESTS
+/*
+ * Returns the coresponding iSAX binary symbol 
+ * (as in the original paper: (b_c, INF] corresponding to 0 and so forth)
+ */
+sax_symbol get_symbol(double value, unsigned int cardinality);
+
+double *normalize(double *series, size_t n_values);
+#endif // STS_COMPILE_UNIT_TESTS
 
 #endif

@@ -19,7 +19,7 @@ const double breaks[MAX_CORDINALITY][(1 << MAX_CORDINALITY) + 1] =
     {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
     {-DBL_MAX, -1.15, -0.67, -0.32, 0.0, 0.32, 0.67, 1.15, DBL_MAX}};
 
-unsigned int get_symbol(double value, int cardinality) {
+sax_symbol get_symbol(double value, unsigned int cardinality) {
     unsigned int pow = 1 << cardinality;
     for (unsigned int i = 0; i < pow; ++i) {
         if (value >= breaks[cardinality-1][i] 
@@ -54,13 +54,13 @@ double *normalize(double *series, size_t n_values) {
     return normalized;
 }
 
-unsigned int *to_iSAX(double *series, size_t n_values, int w, int c) {
+sax_symbol *to_iSAX(double *series, size_t n_values, int w, int c) {
     if (n_values % w != 0 || c > MAX_CORDINALITY) {
         // TODO: Not supported yet, fix
         return NULL;
     }
     series = normalize(series, n_values);
-    unsigned int *encoded_series = (unsigned int *) malloc(w * sizeof(unsigned int));
+    sax_symbol *encoded_series = (sax_symbol *) malloc(w * sizeof(sax_symbol));
     unsigned int chunk_size = n_values / w;
     for (int i = 0; i < w; ++i) {
         double average = 0;
