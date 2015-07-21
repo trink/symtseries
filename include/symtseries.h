@@ -22,6 +22,7 @@ typedef sax_symbol *sax_word;
  * Returns symbolic representation of series in binary notation
  * @param c: 2^c would be code's cardinality
  * @param w: length of returned code
+ * TODO: support cardinalities which are not powers of 2
  */
 sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c);
 
