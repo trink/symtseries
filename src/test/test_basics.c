@@ -36,8 +36,8 @@ static char *test_to_iSAX_normalization() {
     double *normseq = normalize(seq, 16);
     for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
         for (size_t w = 1; w <= 16; w *= 2) {
-            sax_symbol *sax = sts_to_iSAX(seq, 16, w, pow), 
-                       *normsax = sts_to_iSAX(normseq, 16, w, pow);
+            sax_word sax = sts_to_iSAX(seq, 16, w, pow), 
+                     normsax = sts_to_iSAX(normseq, 16, w, pow);
             mu_assert(memcmp(sax, normsax, w) == 0, 
                     "normalized array got encoded differently for w=%zu, c=%zu", w, pow);
         }
@@ -50,7 +50,7 @@ static char *test_to_iSAX_sample() {
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
     unsigned int expected[4] = {0, 7, 3, 4};
-    sax_symbol *sax = sts_to_iSAX(nseq, 12, 4, 3);
+    sax_word sax = sts_to_iSAX(nseq, 12, 4, 3);
     for (int i = 0; i < 4; ++i) {
         mu_assert(sax[i] == expected[i], 
                 "Error converting sample series: \
@@ -63,7 +63,7 @@ static char *test_to_iSAX_stationary() {
     double seq[8] = {8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 8, 8 + STS_STAT_EPS, 8, 8};
     for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
         for (size_t w = 1; w <= 8; w *= 2) {
-            sax_symbol *sax = sts_to_iSAX(seq, 8, w, pow);
+            sax_word sax = sts_to_iSAX(seq, 8, w, pow);
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax[i] == (1 << (pow-1)) - 1, 
                         "#%zu element of stationary sequence encoded into %u", i, sax[i]);

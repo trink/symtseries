@@ -16,13 +16,14 @@
 #define STS_STAT_EPS 1e-2
 
 typedef unsigned char sax_symbol;
+typedef sax_symbol *sax_word;
 
 /*
  * Returns symbolic representation of series in binary notation
  * @param c: 2^c would be code's cardinality
  * @param w: length of returned code
  */
-sax_symbol *sts_to_iSAX(double *series, size_t n_values, int w, int c);
+sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c);
 
 #ifdef STS_COMPILE_UNIT_TESTS
 /*

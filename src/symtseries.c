@@ -54,20 +54,20 @@ double *normalize(double *series, size_t n_values) {
     return normalized;
 }
 
-sax_symbol *sts_to_iSAX(double *series, size_t n_values, int w, int c) {
+sax_word sts_to_iSAX(double *series, size_t n_values, int w, int c) {
     if (n_values % w != 0 || c > STS_MAX_CORDINALITY) {
         // TODO: Not supported yet, fix
         return NULL;
     }
     series = normalize(series, n_values);
-    sax_symbol *encoded_series = (sax_symbol *) malloc(w * sizeof(sax_symbol));
-    unsigned int chunk_size = n_values / w;
+    sax_word encoded_series = (sax_word) malloc(w * sizeof(sax_symbol));
+    unsigned int frame_size = n_values / w;
     for (int i = 0; i < w; ++i) {
         double average = 0;
-        for (size_t j = i * chunk_size; j < (i+1) * chunk_size; ++j) {
+        for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
             average += series[j];
         } 
-        average /= chunk_size;
+        average /= frame_size;
         encoded_series[i] = get_symbol(average, c);
     }
     free(series);
