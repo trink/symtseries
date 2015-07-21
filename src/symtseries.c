@@ -94,5 +94,5 @@ double sts_mindist(sax_word a, sax_word b, size_t w, size_t n, unsigned int c) {
         distance += sym_distance * sym_distance;
     }
     distance = sqrt((double) n / (double) w) * sqrt(distance);
-    return 0;
+    return distance;
 }
