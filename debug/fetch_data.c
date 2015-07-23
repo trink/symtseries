@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "symtseries.h"
 #include "debug.h"
 
 const char* getfield(char* line, int num)

@@ -34,14 +34,17 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c);
 double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c);
 
 #ifdef STS_COMPILE_UNIT_TESTS
-/*
- * Returns the coresponding iSAX binary symbol 
- * (as in the original paper: (b_c, INF] corresponding to 0 and so forth)
- * @param c: log2(cardinality), i.e. 2^c would be code's cardinality
- */
-sax_symbol get_symbol(double value, unsigned int c);
 
-double *normalize(double *series, size_t n_values);
+char *test_get_symbol_zero();
+
+char *test_get_symbol_breaks();
+
+char *test_to_iSAX_normalization();
+
+char *test_to_iSAX_sample();
+
+char *test_to_iSAX_stationary();
+
 #endif // STS_COMPILE_UNIT_TESTS
 
 #endif

@@ -14,12 +14,12 @@
 #include <string.h>
 
 /* Breakpoints used in iSAX symbol estimation */
-const double breaks[STS_MAX_CORDINALITY][(1 << STS_MAX_CORDINALITY) + 1] = 
+static const double breaks[STS_MAX_CORDINALITY][(1 << STS_MAX_CORDINALITY) + 1] = 
    {{-DBL_MAX, 0.0, DBL_MAX, 0, 0, 0, 0, 0, 0},
     {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
     {-DBL_MAX, -1.15, -0.67, -0.32, 0.0, 0.32, 0.67, 1.15, DBL_MAX}};
 
-sax_symbol get_symbol(double value, unsigned int c) {
+static sax_symbol get_symbol(double value, unsigned int c) {
     unsigned int pow = 1 << c;
     for (unsigned int i = 0; i < pow; ++i) {
         if (value >= breaks[c-1][i] 
@@ -31,7 +31,7 @@ sax_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-double *normalize(double *series, size_t n_values) {
+static double *normalize(double *series, size_t n_values) {
     double mu = 0, std = 0;
     for (size_t i = 0; i < n_values; ++i) {
         mu += series[i];
@@ -75,7 +75,7 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) 
 }
 
 /* TODO: precompute dist table */
-double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
+static double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
     if (abs(a - b) <= 1) {
         return 0;
     }
@@ -96,3 +96,74 @@ double sts_mindist(sax_word a, sax_word b, size_t w, size_t n, unsigned int c) {
     distance = sqrt((double) n / (double) w) * sqrt(distance);
     return distance;
 }
+
+/* No namespaces in C, so it goes here */
+#ifdef STS_COMPILE_UNIT_TESTS
+
+#include "test/test.h"
+#include <errno.h>
+#include <stdio.h>
+
+const double tbreaks[8] = {1.15, 0.67, 0.32, 0, -0.32, -0.67, -1.15, -1.16};
+
+char *test_get_symbol_zero() {
+    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
+        sax_symbol zero_encoded = get_symbol(0.0, pow);
+        mu_assert(zero_encoded == (1 << (pow-1)) - 1, 
+                "zero encoded into %u for cardinality %zu", zero_encoded, pow);
+    }
+    return NULL;
+}
+
+char *test_get_symbol_breaks() {
+    for (unsigned int i = 0; i < 8; ++i) {
+        sax_symbol break_encoded = get_symbol(tbreaks[i], 3);
+        mu_assert(break_encoded == i, "%lf encoded into %u instead of %u", 
+                tbreaks[i], break_encoded, i);
+    }
+    return NULL;
+}
+
+char *test_to_iSAX_normalization() {
+    double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
+    double *normseq = normalize(seq, 16);
+    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
+        for (size_t w = 1; w <= 16; w *= 2) {
+            sax_word sax = sts_to_iSAX(seq, 16, w, pow), 
+                     normsax = sts_to_iSAX(normseq, 16, w, pow);
+            mu_assert(memcmp(sax, normsax, w) == 0, 
+                    "normalized array got encoded differently for w=%zu, c=%zu", w, pow);
+        }
+    }
+    return NULL;
+}
+
+char *test_to_iSAX_sample() {
+    // After averaging and normalization this series looks like:
+    // {highest sector, lowest sector, sector right above 0, sector right under 0}
+    double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
+    unsigned int expected[4] = {0, 7, 3, 4};
+    sax_word sax = sts_to_iSAX(nseq, 12, 4, 3);
+    for (int i = 0; i < 4; ++i) {
+        mu_assert(sax[i] == expected[i], 
+                "Error converting sample series: \
+                batch %d turned into %u instead of %u", i, sax[i], expected[i]);
+    }
+    return NULL;
+}
+
+char *test_to_iSAX_stationary() {
+    double sseq[8] = {8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 8, 8 + STS_STAT_EPS, 8, 8};
+    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
+        for (size_t w = 1; w <= 8; w *= 2) {
+            sax_word sax = sts_to_iSAX(sseq, 8, w, pow);
+            for (size_t i = 0; i < w; ++i) {
+                mu_assert(sax[i] == (1 << (pow-1)) - 1, 
+                        "#%zu element of stationary sequence encoded into %u", i, sax[i]);
+            }
+        }
+    }
+    return NULL;
+}
+
+#endif // STS_COMPILE_UNIT_TESTS

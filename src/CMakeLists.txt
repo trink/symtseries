@@ -13,10 +13,10 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE CACHE STRING "" FORCE)
 set(CPACK_RPM_PACKAGE_LICENSE "MPLv2.0")
 set(CPACK_STRIP_FILES TRUE)
 
-add_library(symtseries SHARED ${SYMTSERIES_SRC})
-
-install(TARGETS symtseries DESTINATION bin)
-
 if (DEFINED STS_COMPILE_UNIT_TESTS)
+    enable_testing()
     add_subdirectory(test)
+else()
+    add_library(symtseries SHARED ${SYMTSERIES_SRC})
+    install(TARGETS symtseries DESTINATION bin)
 endif()

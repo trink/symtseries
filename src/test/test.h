@@ -6,8 +6,8 @@
 
 /** @brief Symbolic time series unit tests macros @file */
 
-#ifndef test_h_
-#define test_h_
+#ifndef mu_test_h_
+#define mu_test_h_
 
 #include <errno.h>
 #include <stdio.h>
@@ -38,7 +38,7 @@ do {                                                                           \
 } while (0)
 
 #define MU_ERR_LEN 1024
-int mu_tests_run = 0;
-char mu_err[MU_ERR_LEN] = { 0 };
+extern int mu_tests_run;
+extern char mu_err[MU_ERR_LEN];
 
 #endif

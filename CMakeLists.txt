@@ -32,12 +32,12 @@ set(CPACK_PACKAGE_VENDOR        "Vlad Sterzhanov aka Quadrocube")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 include(CPack)
 
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
 if (DEFINED STS_COMPILE_UNIT_TESTS)
     add_definitions(-DSTS_COMPILE_UNIT_TESTS)
     include(CTest)
 endif()
-
-include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_subdirectory(src)
 add_subdirectory(debug)
