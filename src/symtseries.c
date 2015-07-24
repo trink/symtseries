@@ -79,15 +79,15 @@ static double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
     if (abs(a - b) <= 1) {
         return 0;
     }
-    if (a < b) {
+    if (a > b) {
         sax_symbol c_ = a;
         a = b;
         b = c_;
     }
-    return breaks[c][a-1] - breaks[c][b];
+    return breaks[c-1][a+1] - breaks[c-1][b];
 }
 
-double sts_mindist(sax_word a, sax_word b, size_t w, size_t n, unsigned int c) {
+double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
     double distance = 0, sym_distance;
     for (size_t i = 0; i < w; ++i) {
         sym_distance = sym_dist(a[i], b[i], c);
