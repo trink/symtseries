@@ -4,7 +4,7 @@
 
 #ifdef STS_COMPILE_UNIT_TESTS
 
-#include "test.h"
+#include "sts_test.h"
 #include "symtseries.h"
 
 #include <errno.h>

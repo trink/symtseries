@@ -100,7 +100,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
 /* No namespaces in C, so it goes here */
 #ifdef STS_COMPILE_UNIT_TESTS
 
-#include "test/test.h"
+#include "test/sts_test.h"
 #include <errno.h>
 #include <stdio.h>
 
