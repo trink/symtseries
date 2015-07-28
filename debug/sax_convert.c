@@ -19,11 +19,11 @@ int main(int argc, char **argv) {
         values = realloc(values, (++n_values + 1) * sizeof(double));
     }
     if (w != 0) {
-        show_iSAX(values, n_values, w, c);
+        show_conv_iSAX(values, n_values, w, c);
     } else {
         for (w = 1; w <= n_values; ++w) {
             if (n_values % w == 0)
-                show_iSAX(values, n_values, w, c);
+                show_conv_iSAX(values, n_values, w, c);
         }
     }
 }

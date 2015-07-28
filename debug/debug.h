@@ -22,19 +22,24 @@ void to_binary(unsigned int n, char *buffer, int c) {
     buffer[i] = '\0';
 }
 
-void show_iSAX(double *series, size_t n_values, int w, int c) {
-    sax_symbol *iSAX_word = sts_to_iSAX(series, n_values, w, c);
-    if (iSAX_word == NULL) {
-        printf("OOps, yet unable to manage given params\n");
-        return;
-    }
+void show_iSAX(sax_word word, size_t w, unsigned int c) {
     printf("{");
-    for (int i = 0; i < w; ++i) {
+    for (size_t i = 0; i < w; ++i) {
+        fflush(stdout);
         char buffer[19];
-        to_binary(iSAX_word[i], buffer, c);
+        to_binary(word[i], buffer, c);
         printf("%s", buffer);
         if (i < w - 1) printf(", ");
     }
     printf("}\n");
+}
+
+void show_conv_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
+    sax_word iSAX_word = sts_to_iSAX(series, n_values, w, c);
+    if (iSAX_word == NULL) {
+        printf("OOps, yet unable to manage given params\n");
+        return;
+    }
+    show_iSAX(iSAX_word, w, c);
     free(iSAX_word);
 }
