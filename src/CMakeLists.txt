@@ -2,21 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-set(SYMTSERIES_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/symtseries.c
-)
+# Build main library
+add_library(symtseries SHARED symtseries.c)
+target_link_libraries(symtseries ${UNIX_LIBRARIES})
+install(TARGETS symtseries DESTINATION bin)
 
-set(ENV{SYMTSERIES_SRC} ${SYMTSERIES_SRC})
+# Build public unit tests
+add_subdirectory(test)
 
-set(CMAKE_SKIP_BUILD_RPATH FALSE CACHE STRING "" FORCE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE CACHE STRING "" FORCE)
-set(CPACK_RPM_PACKAGE_LICENSE "MPLv2.0")
-set(CPACK_STRIP_FILES TRUE)
-
-if (DEFINED STS_COMPILE_UNIT_TESTS)
-    enable_testing()
-    add_subdirectory(test)
-else()
-    add_library(symtseries SHARED ${SYMTSERIES_SRC})
-    install(TARGETS symtseries DESTINATION bin)
-endif()
+# Build private unit tests
+include_directories(test)
+add_executable(sts_test_private symtseries.c)
+target_compile_definitions(sts_test_private PRIVATE -DSTS_COMPILE_UNIT_TESTS)
+target_link_libraries(sts_test_private sts_test)
+add_test(NAME sts_test_private WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test COMMAND sts_test_private)
