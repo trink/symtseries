@@ -106,7 +106,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
 
 const double tbreaks[8] = {1.15, 0.67, 0.32, 0, -0.32, -0.67, -1.15, -1.16};
 
-char *test_get_symbol_zero() {
+static char *test_get_symbol_zero() {
     for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
         sax_symbol zero_encoded = get_symbol(0.0, pow);
         mu_assert(zero_encoded == (1 << (pow-1)) - 1, 
@@ -115,7 +115,7 @@ char *test_get_symbol_zero() {
     return NULL;
 }
 
-char *test_get_symbol_breaks() {
+static char *test_get_symbol_breaks() {
     for (unsigned int i = 0; i < 8; ++i) {
         sax_symbol break_encoded = get_symbol(tbreaks[i], 3);
         mu_assert(break_encoded == i, "%lf encoded into %u instead of %u", 
@@ -138,7 +138,7 @@ char *test_to_iSAX_normalization() {
     return NULL;
 }
 
-char *test_to_iSAX_sample() {
+static char *test_to_iSAX_sample() {
     // After averaging and normalization this series looks like:
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
@@ -152,7 +152,7 @@ char *test_to_iSAX_sample() {
     return NULL;
 }
 
-char *test_to_iSAX_stationary() {
+static char *test_to_iSAX_stationary() {
     double sseq[8] = {8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 8, 8 + STS_STAT_EPS, 8, 8};
     for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
         for (size_t w = 1; w <= 8; w *= 2) {
@@ -164,6 +164,27 @@ char *test_to_iSAX_stationary() {
         }
     }
     return NULL;
+}
+
+static char* all_tests() {
+    mu_run_test(test_get_symbol_zero);
+    mu_run_test(test_get_symbol_breaks);
+    mu_run_test(test_to_iSAX_normalization);
+    mu_run_test(test_to_iSAX_sample);
+    mu_run_test(test_to_iSAX_stationary);
+    return NULL;
+}
+
+int main() {
+    char* result = all_tests();
+    if (result) {
+        printf("%s\n", result);
+    } else {
+        printf("ALL TESTS PASSED\n");
+    }
+    printf("Tests run: %d\n", mu_tests_run);
+
+    return result != 0;
 }
 
 #endif // STS_COMPILE_UNIT_TESTS
