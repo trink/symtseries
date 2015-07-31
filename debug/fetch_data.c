@@ -25,8 +25,8 @@ static const char* getfield(char* line, int num)
 
 #define BUF_SIZE 10000
 
-#define NCHANNELS 6
-#define NSESSIONS 2
+#define NCHANNELS 32
+#define NSESSIONS 8
 #define EVLEN 150
 
 typedef sax_word sax_signal[NCHANNELS];
