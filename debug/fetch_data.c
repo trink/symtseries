@@ -25,8 +25,8 @@ static const char* getfield(char* line, int num)
 
 #define BUF_SIZE 10000
 
-#define NCHANNELS 32
-#define NSESSIONS 8
+#define NCHANNELS 6
+#define NSESSIONS 2
 #define EVLEN 150
 
 typedef sax_word sax_signal[NCHANNELS];
@@ -38,12 +38,46 @@ struct sax_signal_set {
 
 struct session {
     double **series;
-    size_t series_count;
+    size_t n_series;
 };
 
-#define PUSH_BACK(series, size, value) \
-    (series) = realloc((series), (++(size)) * sizeof(*series)); \
-    (series)[(size) - 1] = (value);
+void *safe_realloc(void *mem, size_t size) {
+    void *new_mem = realloc(mem, size);
+    if (!new_mem) {
+        printf("Unable to allocate more mem, exiting\n");
+        exit(-1);
+    }
+    return new_mem;
+}
+
+void *safe_malloc(size_t size) {
+    void *new_mem = malloc(size);
+    if (!new_mem) {
+        printf("Unable to allocate more mem, exiting\n");
+        exit(-1);
+    }
+    return new_mem;
+}
+
+void push_back(double* *series, size_t* size, double value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof(double)); \
+    (*series)[(*size) - 1] = value;
+}
+
+void push_back_pointer(double* **series, size_t* size, double* value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof(double*)); \
+    (*series)[(*size) - 1] = value;
+}
+
+void push_back_buffer(double* *val_buffer, size_t* n_values, double value, 
+        double* **series, size_t* n_trials) {
+    push_back(val_buffer, n_values, value);
+    if (*n_values >= EVLEN) {
+        double *new_subseq = safe_malloc(EVLEN * sizeof(double));
+        memcpy(new_subseq, *val_buffer + (*n_values - EVLEN), EVLEN);
+        push_back_pointer(series, n_trials, new_subseq);
+    }
+}
 
 static double signal_dist(sax_signal signal1, sax_signal signal2, 
         size_t n, size_t w, unsigned int c) {
@@ -55,13 +89,13 @@ static double signal_dist(sax_signal signal1, sax_signal signal2,
     return sqrt(dist);
 }
 
-
 /*
  * Parses subject-specific files in train and 
  * returns the subrange corresponding to specified activity
  * @param evid: 1-based id of the event. 
  * If evid is negative than each subrange not corresponding to event #evid 
  * of length EVLEN will be returned
+ * If evid is zero, than all session subsequences of length EVLEN will be returned
  */
 struct session fetch_session_data(int pid, int chid, int sid, int evid) {
     char buf[BUF_SIZE];
@@ -89,7 +123,9 @@ struct session fetch_session_data(int pid, int chid, int sid, int evid) {
         tmp = strdup(buf);
         double value = strtod(getfield(tmp, chid+2), NULL);
         free(tmp);
-        if (evid > 0) {
+        if (evid == 0) {
+            push_back_buffer(&val_buffer, &n_values, value, &series, &n_trials);
+        } else if (evid > 0) {
                 // Normal fetch
                 if (!event_triggered) {
                     // No activity on event of interest registered -> skip
@@ -99,9 +135,9 @@ struct session fetch_session_data(int pid, int chid, int sid, int evid) {
                 if (new) {
                     new = 0;
                     n_values = 0;
-                    PUSH_BACK(series, n_trials, NULL);
+                    push_back_pointer(&series, &n_trials, NULL);
                 }
-                PUSH_BACK(series[n_trials-1], n_values, value)
+                push_back(&series[n_trials-1], &n_values, value);
         } else {
             // Inverse fetch
             if (event_triggered && val_buffer != NULL) {
@@ -113,12 +149,7 @@ struct session fetch_session_data(int pid, int chid, int sid, int evid) {
                 val_buffer = NULL;
                 continue;
             }
-            PUSH_BACK(val_buffer, n_values, value);
-            if (n_values >= EVLEN) {
-                double *new_subseq = malloc(EVLEN * sizeof(double));
-                memcpy(new_subseq, val_buffer + (n_values - EVLEN), EVLEN);
-                PUSH_BACK(series, n_trials, new_subseq);
-            }
+            push_back_buffer(&val_buffer, &n_values, value, &series, &n_trials);
         }
     }
     if (val_buffer != NULL) free(val_buffer);
@@ -139,10 +170,10 @@ struct sax_signal_set fetch_event_data(int pid, int evid, int w, int c) {
                 exit(-1);
             }
             if (chid == 0) {
-                n_series += trials.series_count; 
-                series = realloc(series, n_series * sizeof *series);
+                n_series += trials.n_series; 
+                series = safe_realloc(series, n_series * sizeof *series);
             }
-            for (size_t trid = 0; trid < trials.series_count; ++trid) {
+            for (size_t trid = 0; trid < trials.n_series; ++trid) {
                 // SAX conversion is defined for even partitioning only
                 series[n_series - trid - 1][chid] = 
                     sts_to_iSAX(trials.series[trid], EVLEN - (EVLEN % w), w, c);
@@ -156,7 +187,7 @@ struct sax_signal_set fetch_event_data(int pid, int evid, int w, int c) {
 
 double* evaluate_mindist(struct sax_signal_set A, struct sax_signal_set B, size_t n, int w, int c) {
     int inner_eval = (A.series == B.series) && (A.n_series == B.n_series);
-    double *mindists = malloc(A.n_series * sizeof (double));
+    double *mindists = safe_malloc(A.n_series * sizeof (double));
     for (size_t trid = 0; trid < A.n_series; ++trid) {
         double mindist = DBL_MAX;
         for (size_t otrid = 0; otrid < B.n_series; ++otrid) {
@@ -223,7 +254,7 @@ int main(int argc, char **argv) {
             printf("I/O problems occured, exiting\n");
             exit(-1);
         }
-        for (size_t trid = 0; trid < trials.series_count; ++trid) {
+        for (size_t trid = 0; trid < trials.n_series; ++trid) {
             snprintf(buf, BUF_SIZE, "plot/trial%zu", trid + 1);
             FILE *out = fopen(buf, "w");
             for (size_t frameid = 0; frameid < EVLEN; ++frameid) {
