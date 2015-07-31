@@ -105,6 +105,7 @@ struct session fetch_session_data(int pid, int chid, int sid, int evid) {
     snprintf(buf, BUF_SIZE, 
             "data/train/subj%d_series%d_events.csv", pid + 1, sid + 1);
     FILE *eventsf = fopen(buf, "r");
+    if (!dataf || !eventsf) return (struct session) {NULL, 0};
     // Eat-up both csv headers
     if (fgets(buf, BUF_SIZE, dataf) == NULL) return (struct session) {NULL, 0};
     if (fgets(buf, BUF_SIZE, eventsf) == NULL) return (struct session) {NULL, 0};
