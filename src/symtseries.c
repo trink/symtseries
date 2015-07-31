@@ -55,8 +55,7 @@ static double *normalize(double *series, size_t n_values) {
 }
 
 sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    if (n_values % w != 0 || c > STS_MAX_CORDINALITY) {
-        // TODO: Not supported yet, fix
+    if (n_values % w != 0 || c > STS_MAX_CORDINALITY || c == 0) {
         return NULL;
     }
     series = normalize(series, n_values);
