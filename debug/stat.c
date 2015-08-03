@@ -297,7 +297,7 @@ int main(int argc, char **argv) {
         }
         char name_buf[BUF_SIZE];
         snprintf(name_buf, BUF_SIZE, "dist_plot_%d_%d_%d_%d_", pid, evid, chid, w);
-        dump_session_data(dist_plot, series_sizes, "dist_plot");
+        dump_session_data(dist_plot, series_sizes, name_buf);
     } else {
         struct sax_signal_set match_trials = fetch_sax_signals(pid, evid, w, c);
         struct sax_signal_set nonmatch_trials = fetch_sax_signals(pid, -evid, w, c);
