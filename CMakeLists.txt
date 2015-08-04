@@ -8,13 +8,9 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Symbolic analysis for time series data")
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 1)
 
-set(PROJECT_PATH "${CMAKE_BINARY_DIR}/${PROJECT_NAME}")
-
 if(CMAKE_HOST_UNIX)
-    add_definitions(-D_POSIX_C_SOURCE=199309L -D_XOPEN_SOURCE=600)
-    # Predefined Macros: clang|gcc -dM -E -x c /dev/null
     # Compiler options: http://gcc.gnu.org/onlinedocs/gcc/Invoking-GCC.html#Invoking-GCC
-    set(CMAKE_C_FLAGS   "-std=c99 -pedantic -Werror -Wno-error=deprecated -Wall -Wextra -fPIC")
+    set(CMAKE_C_FLAGS   "-std=c99 -pedantic -Werror -Wall -Wextra -fPIC")
     set(CMAKE_C_FLAGS_DEBUG     "-g")
 
     set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG")
@@ -37,7 +33,6 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 include(CPack)
 
 include(CTest)
-enable_testing()
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 

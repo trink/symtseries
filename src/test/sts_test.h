@@ -38,7 +38,7 @@ do {                                                                           \
 } while (0)
 
 #define MU_ERR_LEN 1024
-extern int mu_tests_run;
-extern char mu_err[MU_ERR_LEN];
+int mu_tests_run = 0;
+char mu_err[MU_ERR_LEN] = { 0 };
 
 #endif
