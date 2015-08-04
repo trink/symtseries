@@ -14,7 +14,7 @@
 #include <string.h>
 
 /* Breakpoints used in iSAX symbol estimation */
-static const double breaks[STS_MAX_CORDINALITY - 1][STS_MAX_CORDINALITY + 1] = 
+static const double breaks[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1] = 
 {
     {
         -INFINITY,
@@ -247,7 +247,7 @@ static double *normalize(double *series, size_t n_values) {
 }
 
 sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    if (n_values % w != 0 || c > STS_MAX_CORDINALITY || c < 2) {
+    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
         return NULL;
     }
     series = normalize(series, n_values);
@@ -279,7 +279,7 @@ static double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
 }
 
 double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
-    if (c > STS_MAX_CORDINALITY || c < 2) {
+    if (c > STS_MAX_CARDINALITY || c < 2) {
         return INFINITY;
     }
     double distance = 0, sym_distance;
@@ -299,7 +299,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
 #include <stdio.h>
 
 static char *test_get_symbol_zero() {
-    for (size_t c = 2; c <= STS_MAX_CORDINALITY; ++c) {
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         sax_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
                 "zero encoded into %u for cardinality %zu", zero_encoded, c);
@@ -308,7 +308,7 @@ static char *test_get_symbol_zero() {
 }
 
 static char *test_get_symbol_breaks() {
-    for (size_t c = 2; c <= STS_MAX_CORDINALITY; ++c) {
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (unsigned int i = 0; i < c; ++i) {
             sax_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %zu. c == %zu", 
@@ -321,7 +321,7 @@ static char *test_get_symbol_breaks() {
 char *test_to_iSAX_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
     double *normseq = normalize(seq, 16);
-    for (size_t c = 2; c <= STS_MAX_CORDINALITY; ++c) {
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
             sax_word sax = sts_to_iSAX(seq, 16, w, c), 
                      normsax = sts_to_iSAX(normseq, 16, w, c);
@@ -371,7 +371,7 @@ static char *test_to_iSAX_stationary() {
         8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
         8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8
     };
-    for (size_t c = 2; c <= STS_MAX_CORDINALITY; ++c) {
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 60; ++w) {
             sax_word sax = sts_to_iSAX(sseq, 60 - (60 % w), w, c);
             mu_assert(sax != NULL, "sax conversion failed");
