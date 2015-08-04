@@ -4,6 +4,7 @@
 
 #include "symtseries.h"
 #include <stdio.h>
+#include <string.h>
 
 char *strdup (const char *s) {
     char *d = malloc (strlen (s) + 1);
