@@ -132,8 +132,11 @@ char *test_to_iSAX_normalization() {
                      normsax = sts_to_iSAX(normseq, 16, w, pow);
             mu_assert(memcmp(sax, normsax, w) == 0, 
                     "normalized array got encoded differently for w=%zu, c=%zu", w, pow);
+            free(sax);
+            free(normsax);
         }
     }
+    free(normseq);
     return NULL;
 }
 
@@ -148,6 +151,7 @@ static char *test_to_iSAX_sample() {
                 "Error converting sample series: \
                 batch %d turned into %u instead of %u", i, sax[i], expected[i]);
     }
+    free(sax);
     return NULL;
 }
 
@@ -160,6 +164,7 @@ static char *test_to_iSAX_stationary() {
                 mu_assert(sax[i] == (1 << (pow-1)) - 1, 
                         "#%zu element of stationary sequence encoded into %u", i, sax[i]);
             }
+            free(sax);
         }
     }
     return NULL;

@@ -5,6 +5,12 @@
 #include "symtseries.h"
 #include <stdio.h>
 
+char *strdup (const char *s) {
+    char *d = malloc (strlen (s) + 1);
+    if (d != NULL) strcpy (d,s);
+    return d;
+}
+
 void to_binary(unsigned int n, char *buffer, int c) {
     int i = 0;
     while (n) {
