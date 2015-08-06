@@ -287,19 +287,16 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
         return INFINITY;
     }
     double distance = 0, sym_distance;
-    size_t actual_w = w, actual_n = n;
     for (size_t i = 0; i < w; ++i) {
-        if (a[i] == c || b[i] == c) {
-            // One of the symbols doesn't have data at all
-            --actual_w;
-            actual_n -= n/w;
-            continue;
-        }
-        sym_distance = dist_table[c-2][a[i]][b[i]];
+        // TODO: other variants of NAN handling, that is:
+        // Ignoring, assuming 0 dist to any other symbol, substitution to median
+        sax_symbol x = a[i] == c ? get_symbol(0, c) : a[i];
+        sax_symbol y = b[i] == c ? get_symbol(0, c) : b[i];
+        // Current way of handling: substitute with average value
+        sym_distance = dist_table[c-2][x][y];
         distance += sym_distance * sym_distance;
     }
-    if (actual_w == 0) return 0;
-    distance = sqrt((double) actual_n / (double) actual_w) * sqrt(distance);
+    distance = sqrt((double) n / (double) w) * sqrt(distance);
     return distance;
 }
 
