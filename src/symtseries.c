@@ -253,6 +253,7 @@ static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS
 };
 
 static sax_symbol get_symbol(double value, unsigned int c) {
+    if (isnan(value)) return c;
     for (unsigned int i = 0; i < c; ++i) {
         if (value >= breaks[c-2][i]
             &&
@@ -265,22 +266,32 @@ static sax_symbol get_symbol(double value, unsigned int c) {
 
 static double *normalize(double *series, size_t n_values) {
     double mu = 0, std = 0;
+    size_t actual_n_values = n_values;
     for (size_t i = 0; i < n_values; ++i) {
+        if (!isfinite(series[i])) {
+            --actual_n_values;
+            continue;
+        }
         mu += series[i];
     }
-    mu /= n_values;
+    mu /= actual_n_values > 0 ? actual_n_values : 1;
     for (size_t i = 0; i < n_values; ++i) {
+        if (!isfinite(series[i])) continue;
         std += (mu - series[i]) * (mu - series[i]);
     }
-    std /= n_values;
+    std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
     double *normalized = malloc(n_values * sizeof(double));
-    if (std < STS_STAT_EPS) {
+    if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
         memset(normalized, 0, n_values * sizeof(double));
     } else {
         for (size_t i = 0; i < n_values; ++i) {
-            normalized[i] = (series[i] - mu) / std;
+            if (!isfinite(series[i])) {
+                normalized[i] = series[i];
+            } else {
+                normalized[i] = (series[i] - mu) / std;
+            }
         }
     }
     return normalized;
@@ -295,18 +306,24 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) 
     unsigned int frame_size = n_values / w;
     for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
+        unsigned int current_frame_size = frame_size;
         for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
+            if (isnan(series[j])) {
+                --current_frame_size;
+                continue;
+            }
             average += series[j];
         } 
-        average /= frame_size;
+        if (current_frame_size == 0 || isnan(average)) {
+            // All NaNs or (-INF + INF)
+            average = NAN;
+        } else {
+            average /= current_frame_size;
+        }
         encoded_series[i] = get_symbol(average, c);
     }
     free(series);
     return encoded_series;
-}
-
-static double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
-    return dist_table[c-2][a][b];
 }
 
 double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
@@ -314,11 +331,19 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
         return INFINITY;
     }
     double distance = 0, sym_distance;
+    size_t actual_w = w, actual_n = n;
     for (size_t i = 0; i < w; ++i) {
-        sym_distance = sym_dist(a[i], b[i], c);
+        if (a[i] == c || b[i] == c) {
+            // One of the symbols doesn't have data at all
+            --actual_w;
+            actual_n -= n/w;
+            continue;
+        }
+        sym_distance = dist_table[c-2][a[i]][b[i]];
         distance += sym_distance * sym_distance;
     }
-    distance = sqrt((double) n / (double) w) * sqrt(distance);
+    if (actual_w == 0) return 0;
+    distance = sqrt((double) actual_n / (double) actual_w) * sqrt(distance);
     return distance;
 }
 
