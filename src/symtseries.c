@@ -16,71 +16,27 @@
 /* Breakpoints used in iSAX symbol estimation */
 static const double breaks[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1] = 
 {
-    {
-        -INFINITY, 0.0, INFINITY,
-    },
-
-    {
-        -INFINITY, -0.430, 0.430, INFINITY,
-    },
-
-    {
-        -INFINITY, -0.674, 0.0, 0.674, INFINITY,
-    },
-
-    {
-        -INFINITY, -0.841, -0.253, 0.253, 0.841, INFINITY,
-    },
-
-    {
-        -INFINITY, -0.967, -0.430, 0.0, 0.430, 0.967, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.067, -0.565, -0.180, 0.180, 0.565, 1.067, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.150, -0.674, -0.318, 0.0, 0.318, 0.674, 1.150, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.220, -0.764, -0.430, -0.139, 0.139, 0.430, 0.764, 1.220, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.281, -0.841, -0.524, -0.253, 0.0, 0.253, 0.524, 0.841, 1.281, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.335, -0.908, -0.604, -0.348, -0.114, 0.114, 0.348, 0.604, 0.908, 1.335, 
-        INFINITY,
-    },
-
-    {
-        -INFINITY, -1.382, -0.967, -0.674, -0.430, -0.210, 0.0, 0.210, 0.430, 0.674, 0.967, 
-        1.382, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.426, -1.020, -0.736, -0.502, -0.293, -0.096, 0.096, 0.293, 0.502, 0.736, 
-        1.020, 1.426, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.465, -1.067, -0.791, -0.565, -0.366, -0.180, 0.0, 0.180, 0.366, 0.565, 
-        0.791, 1.067, 1.465, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.501, -1.110, -0.841, -0.622, -0.430, -0.253, -0.083, 0.083, 0.253, 0.430, 
-        0.622, 0.841, 1.110, 1.501, INFINITY,
-    },
-
-    {
-        -INFINITY, -1.534, -1.150, -0.887, -0.674, -0.488, -0.318, -0.157, 0.0, 0.157, 0.318, 
-        0.488, 0.674, 0.887, 1.150, 1.534, INFINITY
-    }
+    { -INFINITY, 0.0, INFINITY, },
+    { -INFINITY, -0.430, 0.430, INFINITY, },
+    { -INFINITY, -0.674, 0.0, 0.674, INFINITY, },
+    { -INFINITY, -0.841, -0.253, 0.253, 0.841, INFINITY, },
+    { -INFINITY, -0.967, -0.430, 0.0, 0.430, 0.967, INFINITY, },
+    { -INFINITY, -1.067, -0.565, -0.180, 0.180, 0.565, 1.067, INFINITY, },
+    { -INFINITY, -1.150, -0.674, -0.318, 0.0, 0.318, 0.674, 1.150, INFINITY, },
+    { -INFINITY, -1.220, -0.764, -0.430, -0.139, 0.139, 0.430, 0.764, 1.220, INFINITY, },
+    { -INFINITY, -1.281, -0.841, -0.524, -0.253, 0.0, 0.253, 0.524, 0.841, 1.281, INFINITY, },
+    { -INFINITY, -1.335, -0.908, -0.604, -0.348, -0.114, 0.114, 0.348, 0.604, 0.908, 1.335, 
+      INFINITY, },
+    { -INFINITY, -1.382, -0.967, -0.674, -0.430, -0.210, 0.0, 0.210, 0.430, 0.674, 0.967, 
+        1.382, INFINITY, },
+    { -INFINITY, -1.426, -1.020, -0.736, -0.502, -0.293, -0.096, 0.096, 0.293, 0.502, 0.736, 
+        1.020, 1.426, INFINITY, },
+    { -INFINITY, -1.465, -1.067, -0.791, -0.565, -0.366, -0.180, 0.0, 0.180, 0.366, 0.565, 
+        0.791, 1.067, 1.465, INFINITY, },
+    { -INFINITY, -1.501, -1.110, -0.841, -0.622, -0.430, -0.253, -0.083, 0.083, 0.253, 0.430, 
+        0.622, 0.841, 1.110, 1.501, INFINITY, },
+    { -INFINITY, -1.534, -1.150, -0.887, -0.674, -0.488, -0.318, -0.157, 0.0, 0.157, 0.318, 
+        0.488, 0.674, 0.887, 1.150, 1.534, INFINITY }
 };
 
 static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS_MAX_CARDINALITY] = 
@@ -301,18 +257,18 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) 
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
         return NULL;
     }
-    series = normalize(series, n_values);
+    double *norm_series = normalize(series, n_values);
     sax_word encoded_series = (sax_word) malloc(w * sizeof(sax_symbol));
     unsigned int frame_size = n_values / w;
     for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
         unsigned int current_frame_size = frame_size;
         for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
-            if (isnan(series[j])) {
+            if (isnan(norm_series[j])) {
                 --current_frame_size;
                 continue;
             }
-            average += series[j];
+            average += norm_series[j];
         } 
         if (current_frame_size == 0 || isnan(average)) {
             // All NaNs or (-INF + INF)
@@ -322,7 +278,7 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) 
         }
         encoded_series[i] = get_symbol(average, c);
     }
-    free(series);
+    free(norm_series);
     return encoded_series;
 }
 
