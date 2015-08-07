@@ -43,7 +43,10 @@ sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
  * Appends new value to the end of given sax-word
  * If word.n_values == word.values->cnt drops the head value
  * Re-computes symbols in accordance with word.c and word.w
+ * @param word: word to be updated
+ * @param value: value to be appended
  * @returns 0 on failure, 1 otherwise
+ * TODO: lazy SAX symbols update?
  */
 int sts_append_value(sts_word *word, double value);
 
@@ -66,6 +69,7 @@ double sts_mindist(sts_word a, sts_word b);
 
 /*
  * Frees allocated memory for sax representation
+ * @param a: pre-allocated word which contents should be freed
  */
 void sts_free_word(sts_word a);
 
