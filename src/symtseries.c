@@ -394,12 +394,29 @@ static char *test_to_iSAX_stationary() {
     return NULL;
 }
 
+static char *test_nan_and_infinity_in_series() {
+    // NaN frames are converted into special symbol and treated accordingly afterwards
+    // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
+    double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
+    unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
+    sax_word sax = sts_to_iSAX(nseq, 12, 6, 8);
+    mu_assert(sax != NULL, "sax conversion failed");
+    for (int i = 0; i < 6; ++i) {
+        mu_assert(sax[i] == expected[i], 
+                "Error converting sample series: \
+                batch %d turned into %u instead of %u", i, sax[i], expected[i]);
+    }
+    free(sax);
+    return NULL;
+}
+
 static char* all_tests() {
     mu_run_test(test_get_symbol_zero);
     mu_run_test(test_get_symbol_breaks);
     mu_run_test(test_to_iSAX_normalization);
     mu_run_test(test_to_iSAX_sample);
     mu_run_test(test_to_iSAX_stationary);
+    mu_run_test(test_nan_and_infinity_in_series);
     return NULL;
 }
 
