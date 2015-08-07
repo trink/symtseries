@@ -231,27 +231,38 @@ static sts_symbol get_symbol(double value, unsigned int c) {
 static double *normalize(double *series_begin, size_t n_values, 
         double *series_end, double *buffer_start, double *buffer_break) {
     if (series_end == NULL) series_end = series_begin + n_values;
-    double mu = 0, std = 0;
     size_t actual_n_values = n_values;
+    size_t i = 0;
+    double *value = series_begin;
     double *series = malloc(n_values * sizeof(double));
     if (!series) return NULL;
-    size_t i = 0;
-    for (double* elem = series_begin; elem != series_end; ++elem) {
-        if (elem == buffer_break) elem = buffer_start;
-        series[i++] = *elem;
-        if (!isfinite(*elem)) {
+
+    // Copy elements from buffer into *series
+    while (value != series_end) {
+        series[i++] = *value;
+        if (++value == buffer_break) value = buffer_start;
+    }
+
+    double mu = 0, std = 0;
+    // Estimate mean
+    for (i = 0; i < n_values; ++i) {
+        if (!isfinite(series[i])) {
             --actual_n_values;
-            continue;
+        } else {
+            mu += series[i];
         }
-        mu += *elem;
     }
     mu /= actual_n_values > 0 ? actual_n_values : 1;
-    for (size_t i = 0; i < n_values; ++i) {
+
+    // Estimate variance
+    for (i = 0; i < n_values; ++i) {
         if (!isfinite(series[i])) continue;
         std += (mu - series[i]) * (mu - series[i]);
     }
     std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
+
+    // Scale *series
     if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
         memset(series, 0, n_values * sizeof(double));
@@ -262,6 +273,7 @@ static double *normalize(double *series_begin, size_t n_values,
             }
         }
     }
+
     return series;
 }
 
@@ -481,6 +493,30 @@ static char *test_to_sax_stationary() {
     return NULL;
 }
 
+static char *test_sliding_word() {
+    double seq[16] = 
+    {5, 4.2, -3.7, 1.0, 0.1, -2.1, 2.2, -3.3, 4, 0.8, 0.7, -0.2, 4, -3.5, 1.8, -0.4};
+    for (unsigned int c = 2; c < STS_MAX_CARDINALITY; ++c) {
+        for (size_t w = 1; w <= 16; w*=2) {
+            sts_word word = sts_to_sax(seq, 16, w, c);
+            sts_word dyword = sts_new_sliding_word(16, w, c);
+            mu_assert(dyword.values != NULL, "sts_new_sliding_word failed");
+            mu_assert(word.symbols != NULL, "sts_to_sax failed");
+            for (size_t i = 0; i < 16; ++i) {
+                mu_assert(sts_append_value(&dyword, seq[i]) != 0, "sts_append_value failed");
+            }
+            mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            mu_assert(dyword.symbols != NULL, "ring buffer failed");
+            mu_assert(memcmp(word.symbols, dyword.symbols, w) == 0, "ring buffer failed");
+            mu_assert(sts_append_value(&dyword, 0) != 0, "ring buffer failed");
+            mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            sts_free_word(word);
+            sts_free_word(dyword);
+        }
+    }
+    return NULL;
+}
+
 static char *test_nan_and_infinity_in_series() {
     // NaN frames are converted into special symbol and treated accordingly afterwards
     // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
@@ -504,6 +540,7 @@ static char* all_tests() {
     mu_run_test(test_to_sax_sample);
     mu_run_test(test_to_sax_stationary);
     mu_run_test(test_nan_and_infinity_in_series);
+    mu_run_test(test_sliding_word);
     return NULL;
 }
 
