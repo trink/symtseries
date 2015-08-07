@@ -34,7 +34,7 @@ void show_iSAX(sax_word word, size_t w, unsigned int c) {
     for (size_t i = 0; i < w; ++i) {
         fflush(stdout);
         char buffer[19];
-        to_binary(word[i], buffer, c);
+        to_binary(word.symbols[i], buffer, c);
         printf("%s", buffer);
         if (i < w - 1) printf(", ");
     }
@@ -42,11 +42,11 @@ void show_iSAX(sax_word word, size_t w, unsigned int c) {
 }
 
 void show_conv_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    sax_word iSAX_word = sts_to_iSAX(series, n_values, w, c);
-    if (iSAX_word == NULL) {
+    sax_word word = sts_to_sax(series, n_values, w, c);
+    if (word.symbols == NULL) {
         printf("OOps, yet unable to manage given params\n");
         return;
     }
-    show_iSAX(iSAX_word, w, c);
-    free(iSAX_word);
+    show_iSAX(word, w, c);
+    sts_free_word(word);
 }

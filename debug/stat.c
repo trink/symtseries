@@ -167,7 +167,7 @@ struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
             for (size_t trid = 0; trid < trials.n_series; ++trid) {
                 // SAX conversion is defined for even partitioning only
                 series[n_series - trid - 1][chid] = 
-                    sts_to_iSAX(trials.series[trid], EVLEN - (EVLEN % w), w, c);
+                    sts_to_sax(trials.series[trid], EVLEN - (EVLEN % w), w, c);
                 free(trials.series[trid]);
             }
             free(trials.series);
@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
             events = safe_realloc(events, n_events * sizeof(sax_word[1]));
             for (size_t frameid = 0; frameid < event.n_series; ++frameid) {
                 events[n_events - frameid - 1][0] = 
-                    sts_to_iSAX(event.series[frameid], EVLEN - (EVLEN % w), w, c);
+                    sts_to_sax(event.series[frameid], EVLEN - (EVLEN % w), w, c);
                 free(event.series[frameid]);
             }
             free(event.series);
@@ -287,11 +287,11 @@ int main(int argc, char **argv) {
             dist_plot.series[sid] = malloc(channel.n_series * sizeof(double));
             for (size_t frameid = 0; frameid < channel.n_series; ++frameid) {
                 sax_word frame[1] = 
-                    {sts_to_iSAX(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
+                    {sts_to_sax(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
                 dist_plot.series[sid][frameid] = 
                     ndim_mindist(1, frame, events, n_events, EVLEN, w, c, INT_MAX);
                 free(channel.series[frameid]);
-                free(frame[0]);
+                sts_free_word(frame[0]);
             }
             free(channel.series);
         }

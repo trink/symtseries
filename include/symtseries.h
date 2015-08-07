@@ -67,6 +67,6 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c);
 /*
  * Frees allocated memory for sax representation
  */
-void sts_free_sax_word(sax_word a);
+void sts_free_word(sax_word a);
 
 #endif

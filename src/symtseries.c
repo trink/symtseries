@@ -233,36 +233,36 @@ static double *normalize(double *series_begin, size_t n_values,
     if (series_end == NULL) series_end = series_begin + n_values;
     double mu = 0, std = 0;
     size_t actual_n_values = n_values;
-    double *normalized = malloc(n_values * sizeof(double));
-    if (!normalized) return NULL;
+    double *series = malloc(n_values * sizeof(double));
+    if (!series) return NULL;
     size_t i = 0;
     for (double* elem = series_begin; elem != series_end; ++elem) {
         if (elem == buffer_break) elem = buffer_start;
+        series[i++] = *elem;
         if (!isfinite(*elem)) {
             --actual_n_values;
             continue;
         }
         mu += *elem;
-        normalized[i++] = *elem;
     }
     mu /= actual_n_values > 0 ? actual_n_values : 1;
     for (size_t i = 0; i < n_values; ++i) {
-        if (!isfinite(normalized[i])) continue;
-        std += (mu - normalized[i]) * (mu - normalized[i]);
+        if (!isfinite(series[i])) continue;
+        std += (mu - series[i]) * (mu - series[i]);
     }
     std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
     if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
-        memset(normalized, 0, n_values * sizeof(double));
+        memset(series, 0, n_values * sizeof(double));
     } else {
         for (i = 0; i < n_values; ++i) {
-            if (isfinite(normalized[i])) {
-                normalized[i] = (normalized[i] - mu) / std;
+            if (isfinite(series[i])) {
+                series[i] = (series[i] - mu) / std;
             }
         }
     }
-    return normalized;
+    return series;
 }
 
 sax_word sts_new_sliding_word(size_t n, size_t w, unsigned int c) {
@@ -343,13 +343,13 @@ int sts_append_value(sax_word *word, double value) {
 }
 
 sax_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
-    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
+    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return FAILURE;
     }
     double *norm_series = normalize(series, n_values, NULL, NULL, NULL);
     if (!norm_series) return FAILURE;
     sax_word word = (sax_word) {n_values, w, c, malloc(w * sizeof(sax_symbol)), NULL};
-    apply_sax_transform(n_values, w, c, word.symbols, series);
+    apply_sax_transform(n_values, w, c, word.symbols, norm_series);
     free(norm_series);
     return word;
 }
@@ -361,7 +361,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
     double distance = 0, sym_distance;
     for (size_t i = 0; i < w; ++i) {
         // TODO: other variants of NAN handling, that is:
-        // Ignoring, assuming 0 dist to any other symbol, substitution to median, throw NaN
+        // Ignoring, assuming 0 dist to any other symbol, substitution to median, throwing NaN
         sax_symbol x = a.symbols[i] == c ? get_symbol(0, c) : a.symbols[i];
         sax_symbol y = b.symbols[i] == c ? get_symbol(0, c) : b.symbols[i];
         // Current way of handling: substitute with average value
@@ -410,6 +410,7 @@ static char *test_get_symbol_breaks() {
 char *test_to_sax_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
     double *normseq = normalize(seq, 16, NULL, NULL, NULL);
+    mu_assert(normseq != NULL, "normalize failed");
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
             sax_word sax = sts_to_sax(seq, 16, w, c), 
