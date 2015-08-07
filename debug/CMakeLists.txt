@@ -4,5 +4,5 @@
 
 add_executable(sax_convert sax_convert.c)
 target_link_libraries(sax_convert symtseries)
-add_executable(fetch_data fetch_data.c)
-target_link_libraries(fetch_data symtseries)
+add_executable(stat stat.c)
+target_link_libraries(stat symtseries)

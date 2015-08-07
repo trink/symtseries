@@ -359,19 +359,16 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
         return NAN;
     }
     double distance = 0, sym_distance;
-    size_t actual_w = w, actual_n = n;
     for (size_t i = 0; i < w; ++i) {
-        if (a.symbols[i] == c || b.symbols[i] == c) {
-            // One of the symbols doesn't have data at all
-            --actual_w;
-            actual_n -= n/w;
-            continue;
-        }
-        sym_distance = dist_table[c-2][a.symbols[i]][b.symbols[i]];
+        // TODO: other variants of NAN handling, that is:
+        // Ignoring, assuming 0 dist to any other symbol, substitution to median, throw NaN
+        sax_symbol x = a.symbols[i] == c ? get_symbol(0, c) : a.symbols[i];
+        sax_symbol y = b.symbols[i] == c ? get_symbol(0, c) : b.symbols[i];
+        // Current way of handling: substitute with average value
+        sym_distance = dist_table[c-2][x][y];
         distance += sym_distance * sym_distance;
     }
-    if (actual_w == 0) return 0;
-    distance = sqrt((double) actual_n / (double) actual_w) * sqrt(distance);
+    distance = sqrt((double) n / (double) w) * sqrt(distance);
     return distance;
 }
 
@@ -410,7 +407,7 @@ static char *test_get_symbol_breaks() {
     return NULL;
 }
 
-char *test_to_iSAX_normalization() {
+char *test_to_sax_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
     double *normseq = normalize(seq, 16, NULL, NULL, NULL);
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
@@ -429,7 +426,7 @@ char *test_to_iSAX_normalization() {
     return NULL;
 }
 
-static char *test_to_iSAX_sample() {
+static char *test_to_sax_sample() {
     // After averaging and normalization this series looks like:
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
@@ -445,7 +442,7 @@ static char *test_to_iSAX_sample() {
     return NULL;
 }
 
-static char *test_to_iSAX_stationary() {
+static char *test_to_sax_stationary() {
     double sseq[60] = {
         8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
         8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
@@ -477,12 +474,29 @@ static char *test_to_iSAX_stationary() {
     return NULL;
 }
 
+static char *test_nan_and_infinity_in_series() {
+    // NaN frames are converted into special symbol and treated accordingly afterwards
+    // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
+    double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
+    unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
+    sax_word sax = sts_to_sax(nseq, 12, 6, 8);
+    mu_assert(sax.symbols != NULL, "sax conversion failed");
+    for (int i = 0; i < 6; ++i) {
+        mu_assert(sax.symbols[i] == expected[i], 
+                "Error converting sample series: \
+                batch %d turned into %u instead of %u", i, sax.symbols[i], expected[i]);
+    }
+    sts_free_word(sax);
+    return NULL;
+}
+
 static char* all_tests() {
     mu_run_test(test_get_symbol_zero);
     mu_run_test(test_get_symbol_breaks);
-    mu_run_test(test_to_iSAX_normalization);
-    mu_run_test(test_to_iSAX_sample);
-    mu_run_test(test_to_iSAX_stationary);
+    mu_run_test(test_to_sax_normalization);
+    mu_run_test(test_to_sax_sample);
+    mu_run_test(test_to_sax_stationary);
+    mu_run_test(test_nan_and_infinity_in_series);
     return NULL;
 }
 
