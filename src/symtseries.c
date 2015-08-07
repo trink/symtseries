@@ -14,18 +14,207 @@
 #include <string.h>
 
 /* Breakpoints used in iSAX symbol estimation */
-static const double breaks[STS_MAX_CORDINALITY][(1 << STS_MAX_CORDINALITY) + 1] = 
-   {{-DBL_MAX, 0.0, DBL_MAX, 0, 0, 0, 0, 0, 0},
-    {-DBL_MAX, -0.67, 0.0, 0.67, DBL_MAX, 0, 0, 0, 0},
-    {-DBL_MAX, -1.15, -0.67, -0.32, 0.0, 0.32, 0.67, 1.15, DBL_MAX}};
+static const double breaks[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1] = 
+{
+    { -INFINITY, 0.0, INFINITY, },
+    { -INFINITY, -0.430, 0.430, INFINITY, },
+    { -INFINITY, -0.674, 0.0, 0.674, INFINITY, },
+    { -INFINITY, -0.841, -0.253, 0.253, 0.841, INFINITY, },
+    { -INFINITY, -0.967, -0.430, 0.0, 0.430, 0.967, INFINITY, },
+    { -INFINITY, -1.067, -0.565, -0.180, 0.180, 0.565, 1.067, INFINITY, },
+    { -INFINITY, -1.150, -0.674, -0.318, 0.0, 0.318, 0.674, 1.150, INFINITY, },
+    { -INFINITY, -1.220, -0.764, -0.430, -0.139, 0.139, 0.430, 0.764, 1.220, INFINITY, },
+    { -INFINITY, -1.281, -0.841, -0.524, -0.253, 0.0, 0.253, 0.524, 0.841, 1.281, INFINITY, },
+    { -INFINITY, -1.335, -0.908, -0.604, -0.348, -0.114, 0.114, 0.348, 0.604, 0.908, 1.335, 
+      INFINITY, },
+    { -INFINITY, -1.382, -0.967, -0.674, -0.430, -0.210, 0.0, 0.210, 0.430, 0.674, 0.967, 
+        1.382, INFINITY, },
+    { -INFINITY, -1.426, -1.020, -0.736, -0.502, -0.293, -0.096, 0.096, 0.293, 0.502, 0.736, 
+        1.020, 1.426, INFINITY, },
+    { -INFINITY, -1.465, -1.067, -0.791, -0.565, -0.366, -0.180, 0.0, 0.180, 0.366, 0.565, 
+        0.791, 1.067, 1.465, INFINITY, },
+    { -INFINITY, -1.501, -1.110, -0.841, -0.622, -0.430, -0.253, -0.083, 0.083, 0.253, 0.430, 
+        0.622, 0.841, 1.110, 1.501, INFINITY, },
+    { -INFINITY, -1.534, -1.150, -0.887, -0.674, -0.488, -0.318, -0.157, 0.0, 0.157, 0.318, 
+        0.488, 0.674, 0.887, 1.150, 1.534, INFINITY }
+};
+
+static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS_MAX_CARDINALITY] = 
+{
+    {
+        { 0,0, },
+        { 0,0, },
+    },
+    {
+        { 0,0,0.86, },
+        { 0,0,0, },
+        { 0.86,0,0, },
+    },
+    {
+        { 0,0,0.67,1.35, },
+        { 0,0,0,0.67, },
+        { 0.67,0,0,0, },
+        { 1.35,0.67,0,0, },
+    },
+    {
+        { 0,0,0.59,1.09,1.68, },
+        { 0,0,0,0.51,1.09, },
+        { 0.59,0,0,0,0.59, },
+        { 1.09,0.51,0,0,0, },
+        { 1.68,1.09,0.59,0,0, },
+    },
+    {
+        { 0,0,0.54,0.97,1.40,1.93, },
+        { 0,0,0,0.43,0.86,1.40, },
+        { 0.54,0,0,0,0.43,0.97, },
+        { 0.97,0.43,0,0,0,0.54, },
+        { 1.40,0.86,0.43,0,0,0, },
+        { 1.93,1.40,0.97,0.54,0,0, },
+    },
+    {
+        { 0,0,0.50,0.89,1.25,1.63,2.14, },
+        { 0,0,0,0.39,0.75,1.13,1.63, },
+        { 0.50,0,0,0,0.36,0.75,1.25, },
+        { 0.89,0.39,0,0,0,0.39,0.89, },
+        { 1.25,0.75,0.36,0,0,0,0.50, },
+        { 1.63,1.13,0.75,0.39,0,0,0, },
+        { 2.14,1.63,1.25,0.89,0.50,0,0, },
+    },
+    {
+        { 0,0,0.48,0.83,1.15,1.47,1.82,2.30, },
+        { 0,0,0,0.36,0.67,0.99,1.35,1.82, },
+        { 0.48,0,0,0,0.32,0.64,0.99,1.47, },
+        { 0.83,0.36,0,0,0,0.32,0.67,1.15, },
+        { 1.15,0.67,0.32,0,0,0,0.36,0.83, },
+        { 1.47,0.99,0.64,0.32,0,0,0,0.48, },
+        { 1.82,1.35,0.99,0.67,0.36,0,0,0, },
+        { 2.30,1.82,1.47,1.15,0.83,0.48,0,0, },
+    },
+    {
+        { 0,0,0.46,0.79,1.08,1.36,1.65,1.99,2.44, },
+        { 0,0,0,0.33,0.62,0.90,1.20,1.53,1.99, },
+        { 0.46,0,0,0,0.29,0.57,0.86,1.20,1.65, },
+        { 0.79,0.33,0,0,0,0.28,0.57,0.90,1.36, },
+        { 1.08,0.62,0.29,0,0,0,0.29,0.62,1.08, },
+        { 1.36,0.90,0.57,0.28,0,0,0,0.33,0.79, },
+        { 1.65,1.20,0.86,0.57,0.29,0,0,0,0.46, },
+        { 1.99,1.53,1.20,0.90,0.62,0.33,0,0,0, },
+        { 2.44,1.99,1.65,1.36,1.08,0.79,0.46,0,0, },
+    },
+    {
+        { 0,0,0.44,0.76,1.03,1.28,1.53,1.81,2.12,2.56, },
+        { 0,0,0,0.32,0.59,0.84,1.09,1.37,1.68,2.12, },
+        { 0.44,0,0,0,0.27,0.52,0.78,1.05,1.37,1.81, },
+        { 0.76,0.32,0,0,0,0.25,0.51,0.78,1.09,1.53, },
+        { 1.03,0.59,0.27,0,0,0,0.25,0.52,0.84,1.28, },
+        { 1.28,0.84,0.52,0.25,0,0,0,0.27,0.59,1.03, },
+        { 1.53,1.09,0.78,0.51,0.25,0,0,0,0.32,0.76, },
+        { 1.81,1.37,1.05,0.78,0.52,0.27,0,0,0,0.44, },
+        { 2.12,1.68,1.37,1.09,0.84,0.59,0.32,0,0,0, },
+        { 2.56,2.12,1.81,1.53,1.28,1.03,0.76,0.44,0,0, },
+    },
+    {
+        { 0,0,0.43,0.73,0.99,1.22,1.45,1.68,1.94,2.24,2.67, },
+        { 0,0,0,0.30,0.56,0.79,1.02,1.26,1.51,1.82,2.24, },
+        { 0.43,0,0,0,0.26,0.49,0.72,0.95,1.21,1.51,1.94, },
+        { 0.73,0.30,0,0,0,0.23,0.46,0.70,0.95,1.26,1.68, },
+        { 0.99,0.56,0.26,0,0,0,0.23,0.46,0.72,1.02,1.45, },
+        { 1.22,0.79,0.49,0.23,0,0,0,0.23,0.49,0.79,1.22, },
+        { 1.45,1.02,0.72,0.46,0.23,0,0,0,0.26,0.56,0.99, },
+        { 1.68,1.26,0.95,0.70,0.46,0.23,0,0,0,0.30,0.73, },
+        { 1.94,1.51,1.21,0.95,0.72,0.49,0.26,0,0,0,0.43, },
+        { 2.24,1.82,1.51,1.26,1.02,0.79,0.56,0.30,0,0,0, },
+        { 2.67,2.24,1.94,1.68,1.45,1.22,0.99,0.73,0.43,0,0, },
+    },
+    {
+        { 0,0,0.42,0.71,0.95,1.17,1.38,1.59,1.81,2.06,2.35,2.77, },
+        { 0,0,0,0.29,0.54,0.76,0.97,1.18,1.40,1.64,1.93,2.35, },
+        { 0.42,0,0,0,0.24,0.46,0.67,0.88,1.11,1.35,1.64,2.06, },
+        { 0.71,0.29,0,0,0,0.22,0.43,0.64,0.86,1.11,1.40,1.81, },
+        { 0.95,0.54,0.24,0,0,0,0.21,0.42,0.64,0.88,1.18,1.59, },
+        { 1.17,0.76,0.46,0.22,0,0,0,0.21,0.43,0.67,0.97,1.38, },
+        { 1.38,0.97,0.67,0.43,0.21,0,0,0,0.22,0.46,0.76,1.17, },
+        { 1.59,1.18,0.88,0.64,0.42,0.21,0,0,0,0.24,0.54,0.95, },
+        { 1.81,1.40,1.11,0.86,0.64,0.43,0.22,0,0,0,0.29,0.71, },
+        { 2.06,1.64,1.35,1.11,0.88,0.67,0.46,0.24,0,0,0,0.42, },
+        { 2.35,1.93,1.64,1.40,1.18,0.97,0.76,0.54,0.29,0,0,0, },
+        { 2.77,2.35,2.06,1.81,1.59,1.38,1.17,0.95,0.71,0.42,0,0, },
+    },
+    {
+        { 0,0,0.41,0.69,0.92,1.13,1.33,1.52,1.72,1.93,2.16,2.45,2.85, },
+        { 0,0,0,0.28,0.52,0.73,0.92,1.12,1.31,1.52,1.76,2.04,2.45, },
+        { 0.41,0,0,0,0.23,0.44,0.64,0.83,1.03,1.24,1.47,1.76,2.16, },
+        { 0.69,0.28,0,0,0,0.21,0.41,0.60,0.80,1.00,1.24,1.52,1.93, },
+        { 0.92,0.52,0.23,0,0,0,0.20,0.39,0.59,0.80,1.03,1.31,1.72, },
+        { 1.13,0.73,0.44,0.21,0,0,0,0.19,0.39,0.60,0.83,1.12,1.52, },
+        { 1.33,0.92,0.64,0.41,0.20,0,0,0,0.20,0.41,0.64,0.92,1.33, },
+        { 1.52,1.12,0.83,0.60,0.39,0.19,0,0,0,0.21,0.44,0.73,1.13, },
+        { 1.72,1.31,1.03,0.80,0.59,0.39,0.20,0,0,0,0.23,0.52,0.92, },
+        { 1.93,1.52,1.24,1.00,0.80,0.60,0.41,0.21,0,0,0,0.28,0.69, },
+        { 2.16,1.76,1.47,1.24,1.03,0.83,0.64,0.44,0.23,0,0,0,0.41, },
+        { 2.45,2.04,1.76,1.52,1.31,1.12,0.92,0.73,0.52,0.28,0,0,0, },
+        { 2.85,2.45,2.16,1.93,1.72,1.52,1.33,1.13,0.92,0.69,0.41,0,0, },
+    },
+    {
+        { 0,0,0.40,0.67,0.90,1.10,1.29,1.47,1.65,1.83,2.03,2.26,2.53,2.93, },
+        { 0,0,0,0.28,0.50,0.70,0.89,1.07,1.25,1.43,1.63,1.86,2.14,2.53, },
+        { 0.40,0,0,0,0.23,0.43,0.61,0.79,0.97,1.16,1.36,1.58,1.86,2.26, },
+        { 0.67,0.28,0,0,0,0.20,0.39,0.57,0.75,0.93,1.13,1.36,1.63,2.03, },
+        { 0.90,0.50,0.23,0,0,0,0.19,0.37,0.55,0.73,0.93,1.16,1.43,1.83, },
+        { 1.10,0.70,0.43,0.20,0,0,0,0.18,0.36,0.55,0.75,0.97,1.25,1.65, },
+        { 1.29,0.89,0.61,0.39,0.19,0,0,0,0.18,0.37,0.57,0.79,1.07,1.47, },
+        { 1.47,1.07,0.79,0.57,0.37,0.18,0,0,0,0.19,0.39,0.61,0.89,1.29, },
+        { 1.65,1.25,0.97,0.75,0.55,0.36,0.18,0,0,0,0.20,0.43,0.70,1.10, },
+        { 1.83,1.43,1.16,0.93,0.73,0.55,0.37,0.19,0,0,0,0.23,0.50,0.90, },
+        { 2.03,1.63,1.36,1.13,0.93,0.75,0.57,0.39,0.20,0,0,0,0.28,0.67, },
+        { 2.26,1.86,1.58,1.36,1.16,0.97,0.79,0.61,0.43,0.23,0,0,0,0.40, },
+        { 2.53,2.14,1.86,1.63,1.43,1.25,1.07,0.89,0.70,0.50,0.28,0,0,0, },
+        { 2.93,2.53,2.26,2.03,1.83,1.65,1.47,1.29,1.10,0.90,0.67,0.40,0,0, },
+    },
+    {
+        { 0,0,0.39,0.66,0.88,1.07,1.25,1.42,1.58,1.75,1.93,2.12,2.34,2.61,3.00, },
+        { 0,0,0,0.27,0.49,0.68,0.86,1.03,1.19,1.36,1.54,1.73,1.95,2.22,2.61, },
+        { 0.39,0,0,0,0.22,0.41,0.59,0.76,0.93,1.09,1.27,1.46,1.68,1.95,2.34, },
+        { 0.66,0.27,0,0,0,0.19,0.37,0.54,0.71,0.88,1.05,1.25,1.46,1.73,2.12, },
+        { 0.88,0.49,0.22,0,0,0,0.18,0.35,0.51,0.68,0.86,1.05,1.27,1.54,1.93, },
+        { 1.07,0.68,0.41,0.19,0,0,0,0.17,0.34,0.51,0.68,0.88,1.09,1.36,1.75, },
+        { 1.25,0.86,0.59,0.37,0.18,0,0,0,0.17,0.34,0.51,0.71,0.93,1.19,1.58, },
+        { 1.42,1.03,0.76,0.54,0.35,0.17,0,0,0,0.17,0.35,0.54,0.76,1.03,1.42, },
+        { 1.58,1.19,0.93,0.71,0.51,0.34,0.17,0,0,0,0.18,0.37,0.59,0.86,1.25, },
+        { 1.75,1.36,1.09,0.88,0.68,0.51,0.34,0.17,0,0,0,0.19,0.41,0.68,1.07, },
+        { 1.93,1.54,1.27,1.05,0.86,0.68,0.51,0.35,0.18,0,0,0,0.22,0.49,0.88, },
+        { 2.12,1.73,1.46,1.25,1.05,0.88,0.71,0.54,0.37,0.19,0,0,0,0.27,0.66, },
+        { 2.34,1.95,1.68,1.46,1.27,1.09,0.93,0.76,0.59,0.41,0.22,0,0,0,0.39, },
+        { 2.61,2.22,1.95,1.73,1.54,1.36,1.19,1.03,0.86,0.68,0.49,0.27,0,0,0, },
+        { 3.00,2.61,2.34,2.12,1.93,1.75,1.58,1.42,1.25,1.07,0.88,0.66,0.39,0,0, },
+    },
+    {
+        { 0,0,0.38,0.65,0.86,1.05,1.22,1.38,1.53,1.69,1.85,2.02,2.21,2.42,2.68,3.07 },
+        { 0,0,0,0.26,0.48,0.66,0.83,0.99,1.15,1.31,1.47,1.64,1.82,2.04,2.30,2.68 },
+        { 0.38,0,0,0,0.21,0.40,0.57,0.73,0.89,1.04,1.21,1.38,1.56,1.77,2.04,2.42 },
+        { 0.65,0.26,0,0,0,0.19,0.36,0.52,0.67,0.83,0.99,1.16,1.35,1.56,1.82,2.21 },
+        { 0.86,0.48,0.21,0,0,0,0.17,0.33,0.49,0.65,0.81,0.98,1.16,1.38,1.64,2.02 },
+        { 1.05,0.66,0.40,0.19,0,0,0,0.16,0.32,0.48,0.64,0.81,0.99,1.21,1.47,1.85 },
+        { 1.22,0.83,0.57,0.36,0.17,0,0,0,0.16,0.31,0.48,0.65,0.83,1.04,1.31,1.69 },
+        { 1.38,0.99,0.73,0.52,0.33,0.16,0,0,0,0.16,0.32,0.49,0.67,0.89,1.15,1.53 },
+        { 1.53,1.15,0.89,0.67,0.49,0.32,0.16,0,0,0,0.16,0.33,0.52,0.73,0.99,1.38 },
+        { 1.69,1.31,1.04,0.83,0.65,0.48,0.31,0.16,0,0,0,0.17,0.36,0.57,0.83,1.22 },
+        { 1.85,1.47,1.21,0.99,0.81,0.64,0.48,0.32,0.16,0,0,0,0.19,0.40,0.66,1.05 },
+        { 2.02,1.64,1.38,1.16,0.98,0.81,0.65,0.49,0.33,0.17,0,0,0,0.21,0.48,0.86 },
+        { 2.21,1.82,1.56,1.35,1.16,0.99,0.83,0.67,0.52,0.36,0.19,0,0,0,0.26,0.65 },
+        { 2.42,2.04,1.77,1.56,1.38,1.21,1.04,0.89,0.73,0.57,0.40,0.21,0,0,0,0.38 },
+        { 2.68,2.30,2.04,1.82,1.64,1.47,1.31,1.15,0.99,0.83,0.66,0.48,0.26,0,0,0 },
+        { 3.07,2.68,2.42,2.21,2.02,1.85,1.69,1.53,1.38,1.22,1.05,0.86,0.65,0.38,0,0 }
+    }
+};
 
 static sax_symbol get_symbol(double value, unsigned int c) {
-    unsigned int pow = 1 << c;
-    for (unsigned int i = 0; i < pow; ++i) {
-        if (value >= breaks[c-1][i] 
+    if (isnan(value)) return c;
+    for (unsigned int i = 0; i < c; ++i) {
+        if (value >= breaks[c-2][i]
             &&
-            value < breaks[c-1][i+1]) {
-            return pow - i - 1;
+            value < breaks[c-2][i+1]) {
+            return c - i - 1;
         }
     }
     return 0;
@@ -33,63 +222,78 @@ static sax_symbol get_symbol(double value, unsigned int c) {
 
 static double *normalize(double *series, size_t n_values) {
     double mu = 0, std = 0;
+    size_t actual_n_values = n_values;
     for (size_t i = 0; i < n_values; ++i) {
+        if (!isfinite(series[i])) {
+            --actual_n_values;
+            continue;
+        }
         mu += series[i];
     }
-    mu /= n_values;
+    mu /= actual_n_values > 0 ? actual_n_values : 1;
     for (size_t i = 0; i < n_values; ++i) {
+        if (!isfinite(series[i])) continue;
         std += (mu - series[i]) * (mu - series[i]);
     }
-    std /= n_values;
+    std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
     double *normalized = malloc(n_values * sizeof(double));
-    if (std < STS_STAT_EPS) {
+    if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
         memset(normalized, 0, n_values * sizeof(double));
     } else {
         for (size_t i = 0; i < n_values; ++i) {
-            normalized[i] = (series[i] - mu) / std;
+            if (!isfinite(series[i])) {
+                normalized[i] = series[i];
+            } else {
+                normalized[i] = (series[i] - mu) / std;
+            }
         }
     }
     return normalized;
 }
 
 sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    if (n_values % w != 0 || c > STS_MAX_CORDINALITY || c == 0) {
+    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
         return NULL;
     }
-    series = normalize(series, n_values);
+    double *norm_series = normalize(series, n_values);
     sax_word encoded_series = (sax_word) malloc(w * sizeof(sax_symbol));
     unsigned int frame_size = n_values / w;
     for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
+        unsigned int current_frame_size = frame_size;
         for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
-            average += series[j];
+            if (isnan(norm_series[j])) {
+                --current_frame_size;
+                continue;
+            }
+            average += norm_series[j];
         } 
-        average /= frame_size;
+        if (current_frame_size == 0 || isnan(average)) {
+            // All NaNs or (-INF + INF)
+            average = NAN;
+        } else {
+            average /= current_frame_size;
+        }
         encoded_series[i] = get_symbol(average, c);
     }
-    free(series);
+    free(norm_series);
     return encoded_series;
 }
 
-/* TODO: precompute dist table */
-static double sym_dist(sax_symbol a, sax_symbol b, unsigned int c) {
-    if (abs(a - b) <= 1) {
-        return 0;
-    }
-    if (a > b) {
-        sax_symbol c_ = a;
-        a = b;
-        b = c_;
-    }
-    return breaks[c-1][a+1] - breaks[c-1][b];
-}
-
 double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
+    if (c > STS_MAX_CARDINALITY || c < 2) {
+        return INFINITY;
+    }
     double distance = 0, sym_distance;
     for (size_t i = 0; i < w; ++i) {
-        sym_distance = sym_dist(a[i], b[i], c);
+        // TODO: other variants of NAN handling, that is:
+        // Ignoring, assuming 0 dist to any other symbol, substitution to median
+        sax_symbol x = a[i] == c ? get_symbol(0, c) : a[i];
+        sax_symbol y = b[i] == c ? get_symbol(0, c) : b[i];
+        // Current way of handling: substitute with average value
+        sym_distance = dist_table[c-2][x][y];
         distance += sym_distance * sym_distance;
     }
     distance = sqrt((double) n / (double) w) * sqrt(distance);
@@ -103,22 +307,22 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
 #include <errno.h>
 #include <stdio.h>
 
-const double tbreaks[8] = {1.15, 0.67, 0.32, 0, -0.32, -0.67, -1.15, -1.16};
-
 static char *test_get_symbol_zero() {
-    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
-        sax_symbol zero_encoded = get_symbol(0.0, pow);
-        mu_assert(zero_encoded == (1 << (pow-1)) - 1, 
-                "zero encoded into %u for cardinality %zu", zero_encoded, pow);
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
+        sax_symbol zero_encoded = get_symbol(0.0, c);
+        mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
+                "zero encoded into %u for cardinality %zu", zero_encoded, c);
     }
     return NULL;
 }
 
 static char *test_get_symbol_breaks() {
-    for (unsigned int i = 0; i < 8; ++i) {
-        sax_symbol break_encoded = get_symbol(tbreaks[i], 3);
-        mu_assert(break_encoded == i, "%lf encoded into %u instead of %u", 
-                tbreaks[i], break_encoded, i);
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
+        for (unsigned int i = 0; i < c; ++i) {
+            sax_symbol break_encoded = get_symbol(breaks[c-2][i], c);
+            mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %zu. c == %zu", 
+                    breaks[c-2][i], break_encoded, c - i - 1, c);
+        }
     }
     return NULL;
 }
@@ -126,12 +330,14 @@ static char *test_get_symbol_breaks() {
 char *test_to_iSAX_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
     double *normseq = normalize(seq, 16);
-    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
-            sax_word sax = sts_to_iSAX(seq, 16, w, pow), 
-                     normsax = sts_to_iSAX(normseq, 16, w, pow);
+            sax_word sax = sts_to_iSAX(seq, 16, w, c), 
+                     normsax = sts_to_iSAX(normseq, 16, w, c);
+            mu_assert(sax != NULL, "sax conversion failed");
+            mu_assert(normsax != NULL, "sax conversion failed");
             mu_assert(memcmp(sax, normsax, w) == 0, 
-                    "normalized array got encoded differently for w=%zu, c=%zu", w, pow);
+                    "normalized array got encoded differently for w=%zu, c=%zu", w, c);
             free(sax);
             free(normsax);
         }
@@ -145,7 +351,8 @@ static char *test_to_iSAX_sample() {
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
     unsigned int expected[4] = {0, 7, 3, 4};
-    sax_word sax = sts_to_iSAX(nseq, 12, 4, 3);
+    sax_word sax = sts_to_iSAX(nseq, 12, 4, 8);
+    mu_assert(sax != NULL, "sax conversion failed");
     for (int i = 0; i < 4; ++i) {
         mu_assert(sax[i] == expected[i], 
                 "Error converting sample series: \
@@ -156,17 +363,50 @@ static char *test_to_iSAX_sample() {
 }
 
 static char *test_to_iSAX_stationary() {
-    double sseq[8] = {8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 8, 8 + STS_STAT_EPS, 8, 8};
-    for (size_t pow = 1; pow <= STS_MAX_CORDINALITY; ++pow) {
-        for (size_t w = 1; w <= 8; w *= 2) {
-            sax_word sax = sts_to_iSAX(sseq, 8, w, pow);
+    double sseq[60] = {
+        8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
+        8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
+        8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8,
+        8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
+        8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
+        8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8,
+        8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
+        8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
+        8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8,
+        8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
+        8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
+        8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8,
+        8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
+        8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
+        8 - STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 8
+    };
+    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
+        for (size_t w = 1; w <= 60; ++w) {
+            sax_word sax = sts_to_iSAX(sseq, 60 - (60 % w), w, c);
+            mu_assert(sax != NULL, "sax conversion failed");
             for (size_t i = 0; i < w; ++i) {
-                mu_assert(sax[i] == (1 << (pow-1)) - 1, 
+                mu_assert(sax[i] == (c / 2) - 1 + (c%2),
                         "#%zu element of stationary sequence encoded into %u", i, sax[i]);
             }
             free(sax);
         }
     }
+    return NULL;
+}
+
+static char *test_nan_and_infinity_in_series() {
+    // NaN frames are converted into special symbol and treated accordingly afterwards
+    // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
+    double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
+    unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
+    sax_word sax = sts_to_iSAX(nseq, 12, 6, 8);
+    mu_assert(sax != NULL, "sax conversion failed");
+    for (int i = 0; i < 6; ++i) {
+        mu_assert(sax[i] == expected[i], 
+                "Error converting sample series: \
+                batch %d turned into %u instead of %u", i, sax[i], expected[i]);
+    }
+    free(sax);
     return NULL;
 }
 
@@ -176,6 +416,7 @@ static char* all_tests() {
     mu_run_test(test_to_iSAX_normalization);
     mu_run_test(test_to_iSAX_sample);
     mu_run_test(test_to_iSAX_stationary);
+    mu_run_test(test_nan_and_infinity_in_series);
     return NULL;
 }
 

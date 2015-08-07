@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 /* TODO: get rid of it? (dynamic breakpoint estimation + big integers) */
-#define STS_MAX_CORDINALITY 3
+#define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
 
 typedef unsigned char sax_symbol;
