@@ -323,7 +323,8 @@ static void apply_sax_transform(size_t n, size_t w, unsigned int c, sts_symbol *
 }
 
 int sts_append_value(sts_word *word, double value) {
-    if (word == NULL || word->values == NULL || word->values->buffer == NULL)
+    if (word == NULL || word->values == NULL || word->values->buffer == NULL ||
+            word->c < 2 || word->c > STS_MAX_CARDINALITY)
         return 0;
     rb_push(word->values, value);
     if (word->symbols == NULL && word->values->cnt == word->n_values) {
