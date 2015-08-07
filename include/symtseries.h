@@ -14,19 +14,19 @@
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
 
-typedef unsigned char sax_symbol;
+typedef unsigned char sts_symbol;
 
-struct ring_buffer;
+struct sts_ring_buffer;
 
-typedef struct ring_buffer ring_buffer;
+typedef struct sts_ring_buffer sts_ring_buffer;
 
-typedef struct sax_word {
+typedef struct sts_word {
     size_t n_values;
     size_t w;
     size_t c; // TODO: migrate to multi-cardinal words (for indexing)
-    sax_symbol *symbols;
-    struct ring_buffer* values;
-} sax_word;
+    sts_symbol *symbols;
+    struct sts_ring_buffer* values;
+} sts_word;
 
 /*
  * Initializes empty sliding-window-like-container
@@ -37,7 +37,7 @@ typedef struct sax_word {
  * @param w: length of the produced code, should be divisor of n
  * @returns {0, 0, 0, NULL, NULL} on failure
  */
-sax_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
+sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
 
 /*
  * Appends new value to the end of given sax-word
@@ -45,7 +45,7 @@ sax_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with word.c and word.w
  * @returns 0 on failure, 1 otherwise
  */
-int sts_append_value(sax_word *word, double value);
+int sts_append_value(sts_word *word, double value);
 
 /*
  * Returns symbolic representation of series which doesn't store initial values
@@ -54,7 +54,7 @@ int sts_append_value(sax_word *word, double value);
  * @param w: length of returned code, should be divisor of n
  * @returns {0, 0, 0, NULL, NULL} on failure
  */
-sax_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
+sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
 
 /*
  * Returns the lowerbounding approximation on distance 
@@ -62,11 +62,11 @@ sax_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */
-double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c);
+double sts_mindist(sts_word a, sts_word b, size_t n, size_t w, unsigned int c);
 
 /*
  * Frees allocated memory for sax representation
  */
-void sts_free_word(sax_word a);
+void sts_free_word(sts_word a);
 
 #endif

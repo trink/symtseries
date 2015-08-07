@@ -29,7 +29,7 @@ static const char* getfield(char* line, int num)
 #define NSESSIONS 8
 #define EVLEN 150
 
-typedef sax_word sax_signal[NCHANNELS];
+typedef sts_word sax_signal[NCHANNELS];
 
 struct sax_signal_set {
     sax_signal *series;
@@ -176,7 +176,7 @@ struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
     return (struct sax_signal_set) {series, n_series};
 }
 
-static double signal_dist(size_t n_dim, sax_word signal1[n_dim], sax_word signal2[n_dim], 
+static double signal_dist(size_t n_dim, sts_word signal1[n_dim], sts_word signal2[n_dim], 
         size_t n, size_t w, unsigned int c) {
     double dist = 0, idist;
     for (size_t i = 0; i < n_dim; ++i) {
@@ -186,7 +186,7 @@ static double signal_dist(size_t n_dim, sax_word signal1[n_dim], sax_word signal
     return sqrt(dist);
 }
 
-double ndim_mindist(int n_dim, sax_word a[n_dim], sax_word (*events)[n_dim], size_t n_events, int n, int w, int c, size_t skipid) {
+double ndim_mindist(int n_dim, sts_word a[n_dim], sts_word (*events)[n_dim], size_t n_events, int n, int w, int c, size_t skipid) {
     double mindist = DBL_MAX;
     for (size_t trid = 0; trid < n_events; ++trid) {
         // since dist(x, x) == 0
@@ -264,12 +264,12 @@ int main(int argc, char **argv) {
         }
         int chid = atoi(argv[6]);
 
-        sax_word (*events)[1] = NULL;
+        sts_word (*events)[1] = NULL;
         size_t n_events = 0;
         for (size_t sid = 0; sid < NSESSIONS; ++sid) {
             struct session event = fetch_session_data(pid, chid, sid, evid);
             n_events += event.n_series;
-            events = safe_realloc(events, n_events * sizeof(sax_word[1]));
+            events = safe_realloc(events, n_events * sizeof(sts_word[1]));
             for (size_t frameid = 0; frameid < event.n_series; ++frameid) {
                 events[n_events - frameid - 1][0] = 
                     sts_to_sax(event.series[frameid], EVLEN - (EVLEN % w), w, c);
@@ -286,7 +286,7 @@ int main(int argc, char **argv) {
             series_sizes[sid] = channel.n_series;
             dist_plot.series[sid] = malloc(channel.n_series * sizeof(double));
             for (size_t frameid = 0; frameid < channel.n_series; ++frameid) {
-                sax_word frame[1] = 
+                sts_word frame[1] = 
                     {sts_to_sax(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
                 dist_plot.series[sid][frameid] = 
                     ndim_mindist(1, frame, events, n_events, EVLEN, w, c, INT_MAX);

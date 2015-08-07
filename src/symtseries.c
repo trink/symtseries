@@ -208,13 +208,13 @@ static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS
     }
 };
 
-struct ring_buffer {
+struct sts_ring_buffer {
     size_t cnt;
     double *buffer, *buffer_end;
     double *head, *tail;
 };
 
-static sax_symbol get_symbol(double value, unsigned int c) {
+static sts_symbol get_symbol(double value, unsigned int c) {
     if (isnan(value)) return c;
     for (unsigned int i = 0; i < c; ++i) {
         if (value >= breaks[c-2][i]
@@ -226,7 +226,7 @@ static sax_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-#define FAILURE (sax_word) {0, 0, 0, NULL, NULL};
+#define FAILURE (sts_word) {0, 0, 0, NULL, NULL};
 
 static double *normalize(double *series_begin, size_t n_values, 
         double *series_end, double *buffer_start, double *buffer_break) {
@@ -265,11 +265,11 @@ static double *normalize(double *series_begin, size_t n_values,
     return series;
 }
 
-sax_word sts_new_sliding_word(size_t n, size_t w, unsigned int c) {
+sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c) {
     if (n % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
         return FAILURE;
     }
-    ring_buffer *values = malloc(sizeof(ring_buffer));
+    sts_ring_buffer *values = malloc(sizeof(sts_ring_buffer));
     if (!values) return FAILURE;
     values->cnt=0;
     values->buffer = malloc((n + 1) * sizeof values->buffer);
@@ -279,10 +279,10 @@ sax_word sts_new_sliding_word(size_t n, size_t w, unsigned int c) {
     }
     values->buffer_end = values->buffer + n + 1;
     values->head = values->tail = values->buffer;
-    return (sax_word) {n, w, c, NULL, values};
+    return (sts_word) {n, w, c, NULL, values};
 }
 
-static void rb_push(ring_buffer* rb, double value)
+static void rb_push(sts_ring_buffer* rb, double value)
 {
     *rb->head = value;
     ++rb->head;
@@ -299,7 +299,7 @@ static void rb_push(ring_buffer* rb, double value)
     }
 }
 
-static void apply_sax_transform(size_t n, size_t w, unsigned int c, sax_symbol *out, 
+static void apply_sax_transform(size_t n, size_t w, unsigned int c, sts_symbol *out, 
         double *series) {
     unsigned int frame_size = n / w;
     for (unsigned int i = 0; i < w; ++i) {
@@ -322,12 +322,12 @@ static void apply_sax_transform(size_t n, size_t w, unsigned int c, sax_symbol *
     }
 }
 
-int sts_append_value(sax_word *word, double value) {
+int sts_append_value(sts_word *word, double value) {
     if (word == NULL || word->values == NULL || word->values->buffer == NULL)
         return 0;
     rb_push(word->values, value);
     if (word->symbols == NULL && word->values->cnt == word->n_values) {
-        sax_symbol *symbols = malloc(word->w * sizeof(sax_symbol));
+        sts_symbol *symbols = malloc(word->w * sizeof(sts_symbol));
         if (!symbols) return 0;
         word->symbols = symbols;
     }
@@ -342,19 +342,19 @@ int sts_append_value(sax_word *word, double value) {
     return 1;
 }
 
-sax_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
+sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return FAILURE;
     }
     double *norm_series = normalize(series, n_values, NULL, NULL, NULL);
     if (!norm_series) return FAILURE;
-    sax_word word = (sax_word) {n_values, w, c, malloc(w * sizeof(sax_symbol)), NULL};
+    sts_word word = (sts_word) {n_values, w, c, malloc(w * sizeof(sts_symbol)), NULL};
     apply_sax_transform(n_values, w, c, word.symbols, norm_series);
     free(norm_series);
     return word;
 }
 
-double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
+double sts_mindist(sts_word a, sts_word b, size_t n, size_t w, unsigned int c) {
     if (c > STS_MAX_CARDINALITY || c < 2 || a.symbols == NULL || b.symbols == NULL) {
         return NAN;
     }
@@ -362,8 +362,8 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
     for (size_t i = 0; i < w; ++i) {
         // TODO: other variants of NAN handling, that is:
         // Ignoring, assuming 0 dist to any other symbol, substitution to median, throwing NaN
-        sax_symbol x = a.symbols[i] == c ? get_symbol(0, c) : a.symbols[i];
-        sax_symbol y = b.symbols[i] == c ? get_symbol(0, c) : b.symbols[i];
+        sts_symbol x = a.symbols[i] == c ? get_symbol(0, c) : a.symbols[i];
+        sts_symbol y = b.symbols[i] == c ? get_symbol(0, c) : b.symbols[i];
         // Current way of handling: substitute with average value
         sym_distance = dist_table[c-2][x][y];
         distance += sym_distance * sym_distance;
@@ -372,7 +372,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
     return distance;
 }
 
-void sts_free_word(sax_word a) {
+void sts_free_word(sts_word a) {
     if (a.symbols != NULL) free(a.symbols);
     if (a.values != NULL) {
         free(a.values->buffer);
@@ -389,7 +389,7 @@ void sts_free_word(sax_word a) {
 
 static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
-        sax_symbol zero_encoded = get_symbol(0.0, c);
+        sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
                 "zero encoded into %u for cardinality %zu", zero_encoded, c);
     }
@@ -399,7 +399,7 @@ static char *test_get_symbol_zero() {
 static char *test_get_symbol_breaks() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (unsigned int i = 0; i < c; ++i) {
-            sax_symbol break_encoded = get_symbol(breaks[c-2][i], c);
+            sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %zu. c == %zu", 
                     breaks[c-2][i], break_encoded, c - i - 1, c);
         }
@@ -407,13 +407,13 @@ static char *test_get_symbol_breaks() {
     return NULL;
 }
 
-char *test_to_sax_normalization() {
+static char *test_to_sax_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
     double *normseq = normalize(seq, 16, NULL, NULL, NULL);
     mu_assert(normseq != NULL, "normalize failed");
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
-            sax_word sax = sts_to_sax(seq, 16, w, c), 
+            sts_word sax = sts_to_sax(seq, 16, w, c), 
                      normsax = sts_to_sax(normseq, 16, w, c);
             mu_assert(sax.symbols != NULL, "sax conversion failed");
             mu_assert(normsax.symbols != NULL, "sax conversion failed");
@@ -432,7 +432,7 @@ static char *test_to_sax_sample() {
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
     unsigned int expected[4] = {0, 7, 3, 4};
-    sax_word sax = sts_to_sax(nseq, 12, 4, 8);
+    sts_word sax = sts_to_sax(nseq, 12, 4, 8);
     mu_assert(sax.symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 4; ++i) {
         mu_assert(sax.symbols[i] == expected[i], 
@@ -463,7 +463,7 @@ static char *test_to_sax_stationary() {
     };
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 60; ++w) {
-            sax_word sax = sts_to_sax(sseq, 60 - (60 % w), w, c);
+            sts_word sax = sts_to_sax(sseq, 60 - (60 % w), w, c);
             mu_assert(sax.symbols != NULL, "sax conversion failed");
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax.symbols[i] == (c / 2) - 1 + (c%2),
@@ -480,7 +480,7 @@ static char *test_nan_and_infinity_in_series() {
     // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
     double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
     unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
-    sax_word sax = sts_to_sax(nseq, 12, 6, 8);
+    sts_word sax = sts_to_sax(nseq, 12, 6, 8);
     mu_assert(sax.symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 6; ++i) {
         mu_assert(sax.symbols[i] == expected[i], 
