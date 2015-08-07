@@ -226,7 +226,7 @@ static sts_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-#define FAILURE (sts_word) {0, 0, 0, NULL, NULL};
+#define FAILURE ((sts_word) {0, 0, 0, NULL, NULL});
 
 static double *normalize(double *series_begin, size_t n_values, 
         double *series_end, double *buffer_start, double *buffer_break) {
@@ -354,10 +354,15 @@ sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
     return word;
 }
 
-double sts_mindist(sts_word a, sts_word b, size_t n, size_t w, unsigned int c) {
+double sts_mindist(sts_word a, sts_word b) {
+    // TODO: mindist estimation for words of different n, w and c
+    if (a.c != b.c || a.w != b.w || a.n_values != b.n_values) return NAN;
+    size_t w = a.w, n = a.n_values;
+    unsigned int c = a.c;
     if (c > STS_MAX_CARDINALITY || c < 2 || a.symbols == NULL || b.symbols == NULL) {
         return NAN;
     }
+
     double distance = 0, sym_distance;
     for (size_t i = 0; i < w; ++i) {
         // TODO: other variants of NAN handling, that is:

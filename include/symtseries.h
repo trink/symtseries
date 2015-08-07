@@ -25,7 +25,7 @@ typedef struct sts_word {
     size_t w;
     size_t c; // TODO: migrate to multi-cardinal words (for indexing)
     sts_symbol *symbols;
-    struct sts_ring_buffer* values;
+    sts_ring_buffer* values;
 } sts_word;
 
 /*
@@ -62,7 +62,7 @@ sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */
-double sts_mindist(sts_word a, sts_word b, size_t n, size_t w, unsigned int c);
+double sts_mindist(sts_word a, sts_word b);
 
 /*
  * Frees allocated memory for sax representation
