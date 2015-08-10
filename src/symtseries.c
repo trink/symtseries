@@ -208,7 +208,13 @@ static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS
     }
 };
 
-static sax_symbol get_symbol(double value, unsigned int c) {
+struct sts_ring_buffer {
+    size_t cnt;
+    double *buffer, *buffer_end;
+    double *head, *tail;
+};
+
+static sts_symbol get_symbol(double value, unsigned int c) {
     if (isnan(value)) return c;
     for (unsigned int i = 0; i < c; ++i) {
         if (value >= breaks[c-2][i]
@@ -220,55 +226,103 @@ static sax_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-static double *normalize(double *series, size_t n_values) {
-    double mu = 0, std = 0;
+#define FAILURE ((sts_word) {0, 0, 0, NULL, NULL});
+
+static double *normalize(double *series_begin, size_t n_values, 
+        double *series_end, double *buffer_start, double *buffer_break) {
+    if (series_end == NULL) series_end = series_begin + n_values;
     size_t actual_n_values = n_values;
-    for (size_t i = 0; i < n_values; ++i) {
+    size_t i = 0;
+    double *value = series_begin;
+    double *series = malloc(n_values * sizeof(double));
+    if (!series) return NULL;
+
+    // Copy elements from buffer into *series
+    while (value != series_end) {
+        series[i++] = *value;
+        if (++value == buffer_break) value = buffer_start;
+    }
+
+    double mu = 0, std = 0;
+    // Estimate mean
+    for (i = 0; i < n_values; ++i) {
         if (!isfinite(series[i])) {
             --actual_n_values;
-            continue;
+        } else {
+            mu += series[i];
         }
-        mu += series[i];
     }
     mu /= actual_n_values > 0 ? actual_n_values : 1;
-    for (size_t i = 0; i < n_values; ++i) {
+
+    // Estimate variance
+    for (i = 0; i < n_values; ++i) {
         if (!isfinite(series[i])) continue;
         std += (mu - series[i]) * (mu - series[i]);
     }
     std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
-    double *normalized = malloc(n_values * sizeof(double));
+
+    // Scale *series
     if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
-        memset(normalized, 0, n_values * sizeof(double));
+        memset(series, 0, n_values * sizeof(double));
     } else {
-        for (size_t i = 0; i < n_values; ++i) {
-            if (!isfinite(series[i])) {
-                normalized[i] = series[i];
-            } else {
-                normalized[i] = (series[i] - mu) / std;
+        for (i = 0; i < n_values; ++i) {
+            if (isfinite(series[i])) {
+                series[i] = (series[i] - mu) / std;
             }
         }
     }
-    return normalized;
+
+    return series;
 }
 
-sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
-        return NULL;
+sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c) {
+    if (n % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
+        return FAILURE;
     }
-    double *norm_series = normalize(series, n_values);
-    sax_word encoded_series = (sax_word) malloc(w * sizeof(sax_symbol));
-    unsigned int frame_size = n_values / w;
+    sts_ring_buffer *values = malloc(sizeof(sts_ring_buffer));
+    if (!values) return FAILURE;
+    values->cnt=0;
+    values->buffer = malloc((n + 1) * sizeof values->buffer);
+    if (!values->buffer) {
+        free(values);
+        return FAILURE;
+    }
+    values->buffer_end = values->buffer + n + 1;
+    values->head = values->tail = values->buffer;
+    return (sts_word) {n, w, c, NULL, values};
+}
+
+static void rb_push(sts_ring_buffer* rb, double value)
+{
+    *rb->head = value;
+    ++rb->head;
+    if (rb->head == rb->buffer_end)
+        rb->head = rb->buffer;
+
+    if (rb->head == rb->tail) {
+        if ((rb->tail + 1) == rb->buffer_end)
+            rb->tail = rb->buffer;
+        else
+            ++rb->tail;
+    } else {
+        ++rb->cnt;
+    }
+}
+
+static void apply_sax_transform(size_t n, size_t w, unsigned int c, sts_symbol *out, 
+        double *series) {
+    unsigned int frame_size = n / w;
     for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
         unsigned int current_frame_size = frame_size;
         for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
-            if (isnan(norm_series[j])) {
+            if (isnan(series[j])) {
                 --current_frame_size;
                 continue;
             }
-            average += norm_series[j];
+            average += series[j];
         } 
         if (current_frame_size == 0 || isnan(average)) {
             // All NaNs or (-INF + INF)
@@ -276,28 +330,72 @@ sax_word sts_to_iSAX(double *series, size_t n_values, size_t w, unsigned int c) 
         } else {
             average /= current_frame_size;
         }
-        encoded_series[i] = get_symbol(average, c);
+        out[i] = get_symbol(average, c);
     }
-    free(norm_series);
-    return encoded_series;
 }
 
-double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
-    if (c > STS_MAX_CARDINALITY || c < 2) {
-        return INFINITY;
+int sts_append_value(sts_word *word, double value) {
+    if (word == NULL || word->values == NULL || word->values->buffer == NULL ||
+            word->c < 2 || word->c > STS_MAX_CARDINALITY)
+        return 0;
+    rb_push(word->values, value);
+    if (word->symbols == NULL && word->values->cnt == word->n_values) {
+        sts_symbol *symbols = malloc(word->w * sizeof(sts_symbol));
+        if (!symbols) return 0;
+        word->symbols = symbols;
     }
+    if (word->symbols != NULL) {
+        double *norm_series = 
+            normalize(word->values->tail, word->n_values, word->values->head, 
+                    word->values->buffer, word->values->buffer_end);
+        if (!norm_series) return 0;
+        apply_sax_transform(word->n_values, word->w, word->c, word->symbols, norm_series);
+        free(norm_series);
+    }
+    return 1;
+}
+
+sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
+    if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
+        return FAILURE;
+    }
+    double *norm_series = normalize(series, n_values, NULL, NULL, NULL);
+    if (!norm_series) return FAILURE;
+    sts_word word = (sts_word) {n_values, w, c, malloc(w * sizeof(sts_symbol)), NULL};
+    apply_sax_transform(n_values, w, c, word.symbols, norm_series);
+    free(norm_series);
+    return word;
+}
+
+double sts_mindist(sts_word a, sts_word b) {
+    // TODO: mindist estimation for words of different n, w and c
+    if (a.c != b.c || a.w != b.w || a.n_values != b.n_values) return NAN;
+    size_t w = a.w, n = a.n_values;
+    unsigned int c = a.c;
+    if (c > STS_MAX_CARDINALITY || c < 2 || a.symbols == NULL || b.symbols == NULL) {
+        return NAN;
+    }
+
     double distance = 0, sym_distance;
     for (size_t i = 0; i < w; ++i) {
         // TODO: other variants of NAN handling, that is:
-        // Ignoring, assuming 0 dist to any other symbol, substitution to median
-        sax_symbol x = a[i] == c ? get_symbol(0, c) : a[i];
-        sax_symbol y = b[i] == c ? get_symbol(0, c) : b[i];
+        // Ignoring, assuming 0 dist to any other symbol, substitution to median, throwing NaN
+        sts_symbol x = a.symbols[i] == c ? get_symbol(0, c) : a.symbols[i];
+        sts_symbol y = b.symbols[i] == c ? get_symbol(0, c) : b.symbols[i];
         // Current way of handling: substitute with average value
         sym_distance = dist_table[c-2][x][y];
         distance += sym_distance * sym_distance;
     }
     distance = sqrt((double) n / (double) w) * sqrt(distance);
     return distance;
+}
+
+void sts_free_word(sts_word a) {
+    if (a.symbols != NULL) free(a.symbols);
+    if (a.values != NULL) {
+        free(a.values->buffer);
+        free(a.values);
+    }
 }
 
 /* No namespaces in C, so it goes here */
@@ -309,7 +407,7 @@ double sts_mindist(sax_word a, sax_word b, size_t n, size_t w, unsigned int c) {
 
 static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
-        sax_symbol zero_encoded = get_symbol(0.0, c);
+        sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
                 "zero encoded into %u for cardinality %zu", zero_encoded, c);
     }
@@ -319,7 +417,7 @@ static char *test_get_symbol_zero() {
 static char *test_get_symbol_breaks() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (unsigned int i = 0; i < c; ++i) {
-            sax_symbol break_encoded = get_symbol(breaks[c-2][i], c);
+            sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %zu. c == %zu", 
                     breaks[c-2][i], break_encoded, c - i - 1, c);
         }
@@ -327,42 +425,43 @@ static char *test_get_symbol_breaks() {
     return NULL;
 }
 
-char *test_to_iSAX_normalization() {
+static char *test_to_sax_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
-    double *normseq = normalize(seq, 16);
+    double *normseq = normalize(seq, 16, NULL, NULL, NULL);
+    mu_assert(normseq != NULL, "normalize failed");
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
-            sax_word sax = sts_to_iSAX(seq, 16, w, c), 
-                     normsax = sts_to_iSAX(normseq, 16, w, c);
-            mu_assert(sax != NULL, "sax conversion failed");
-            mu_assert(normsax != NULL, "sax conversion failed");
-            mu_assert(memcmp(sax, normsax, w) == 0, 
+            sts_word sax = sts_to_sax(seq, 16, w, c), 
+                     normsax = sts_to_sax(normseq, 16, w, c);
+            mu_assert(sax.symbols != NULL, "sax conversion failed");
+            mu_assert(normsax.symbols != NULL, "sax conversion failed");
+            mu_assert(memcmp(sax.symbols, normsax.symbols, w) == 0, 
                     "normalized array got encoded differently for w=%zu, c=%zu", w, c);
-            free(sax);
-            free(normsax);
+            sts_free_word(sax);
+            sts_free_word(normsax);
         }
     }
     free(normseq);
     return NULL;
 }
 
-static char *test_to_iSAX_sample() {
+static char *test_to_sax_sample() {
     // After averaging and normalization this series looks like:
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
     unsigned int expected[4] = {0, 7, 3, 4};
-    sax_word sax = sts_to_iSAX(nseq, 12, 4, 8);
-    mu_assert(sax != NULL, "sax conversion failed");
+    sts_word sax = sts_to_sax(nseq, 12, 4, 8);
+    mu_assert(sax.symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 4; ++i) {
-        mu_assert(sax[i] == expected[i], 
+        mu_assert(sax.symbols[i] == expected[i], 
                 "Error converting sample series: \
-                batch %d turned into %u instead of %u", i, sax[i], expected[i]);
+                batch %d turned into %u instead of %u", i, sax.symbols[i], expected[i]);
     }
-    free(sax);
+    sts_free_word(sax);
     return NULL;
 }
 
-static char *test_to_iSAX_stationary() {
+static char *test_to_sax_stationary() {
     double sseq[60] = {
         8 + STS_STAT_EPS, 8 - STS_STAT_EPS, 8, 8, 
         8, 8 + STS_STAT_EPS, 8, 8 + STS_STAT_EPS, 
@@ -382,13 +481,37 @@ static char *test_to_iSAX_stationary() {
     };
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 60; ++w) {
-            sax_word sax = sts_to_iSAX(sseq, 60 - (60 % w), w, c);
-            mu_assert(sax != NULL, "sax conversion failed");
+            sts_word sax = sts_to_sax(sseq, 60 - (60 % w), w, c);
+            mu_assert(sax.symbols != NULL, "sax conversion failed");
             for (size_t i = 0; i < w; ++i) {
-                mu_assert(sax[i] == (c / 2) - 1 + (c%2),
-                        "#%zu element of stationary sequence encoded into %u", i, sax[i]);
+                mu_assert(sax.symbols[i] == (c / 2) - 1 + (c%2),
+                        "#%zu element of stationary sequence encoded into %u", i, sax.symbols[i]);
             }
-            free(sax);
+            sts_free_word(sax);
+        }
+    }
+    return NULL;
+}
+
+static char *test_sliding_word() {
+    double seq[16] = 
+    {5, 4.2, -3.7, 1.0, 0.1, -2.1, 2.2, -3.3, 4, 0.8, 0.7, -0.2, 4, -3.5, 1.8, -0.4};
+    for (unsigned int c = 2; c < STS_MAX_CARDINALITY; ++c) {
+        for (size_t w = 1; w <= 16; w*=2) {
+            sts_word word = sts_to_sax(seq, 16, w, c);
+            sts_word dyword = sts_new_sliding_word(16, w, c);
+            mu_assert(dyword.values != NULL, "sts_new_sliding_word failed");
+            mu_assert(word.symbols != NULL, "sts_to_sax failed");
+            for (size_t i = 0; i < 16; ++i) {
+                mu_assert(sts_append_value(&dyword, seq[i]) != 0, "sts_append_value failed");
+            }
+            mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            mu_assert(dyword.symbols != NULL, "ring buffer failed");
+            mu_assert(memcmp(word.symbols, dyword.symbols, w) == 0, "ring buffer failed");
+            mu_assert(sts_append_value(&dyword, 0) != 0, "ring buffer failed");
+            mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            sts_free_word(word);
+            sts_free_word(dyword);
         }
     }
     return NULL;
@@ -399,24 +522,25 @@ static char *test_nan_and_infinity_in_series() {
     // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
     double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
     unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
-    sax_word sax = sts_to_iSAX(nseq, 12, 6, 8);
-    mu_assert(sax != NULL, "sax conversion failed");
+    sts_word sax = sts_to_sax(nseq, 12, 6, 8);
+    mu_assert(sax.symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 6; ++i) {
-        mu_assert(sax[i] == expected[i], 
+        mu_assert(sax.symbols[i] == expected[i], 
                 "Error converting sample series: \
-                batch %d turned into %u instead of %u", i, sax[i], expected[i]);
+                batch %d turned into %u instead of %u", i, sax.symbols[i], expected[i]);
     }
-    free(sax);
+    sts_free_word(sax);
     return NULL;
 }
 
 static char* all_tests() {
     mu_run_test(test_get_symbol_zero);
     mu_run_test(test_get_symbol_breaks);
-    mu_run_test(test_to_iSAX_normalization);
-    mu_run_test(test_to_iSAX_sample);
-    mu_run_test(test_to_iSAX_stationary);
+    mu_run_test(test_to_sax_normalization);
+    mu_run_test(test_to_sax_sample);
+    mu_run_test(test_to_sax_stationary);
     mu_run_test(test_nan_and_infinity_in_series);
+    mu_run_test(test_sliding_word);
     return NULL;
 }
 

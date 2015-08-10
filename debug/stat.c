@@ -29,7 +29,7 @@ static const char* getfield(char* line, int num)
 #define NSESSIONS 8
 #define EVLEN 150
 
-typedef sax_word sax_signal[NCHANNELS];
+typedef sts_word sax_signal[NCHANNELS];
 
 struct sax_signal_set {
     sax_signal *series;
@@ -167,7 +167,7 @@ struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
             for (size_t trid = 0; trid < trials.n_series; ++trid) {
                 // SAX conversion is defined for even partitioning only
                 series[n_series - trid - 1][chid] = 
-                    sts_to_iSAX(trials.series[trid], EVLEN - (EVLEN % w), w, c);
+                    sts_to_sax(trials.series[trid], EVLEN - (EVLEN % w), w, c);
                 free(trials.series[trid]);
             }
             free(trials.series);
@@ -176,35 +176,34 @@ struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
     return (struct sax_signal_set) {series, n_series};
 }
 
-static double signal_dist(size_t n_dim, sax_word signal1[n_dim], sax_word signal2[n_dim], 
-        size_t n, size_t w, unsigned int c) {
+static double signal_dist(size_t n_dim, sts_word signal1[n_dim], sts_word signal2[n_dim]) {
     double dist = 0, idist;
     for (size_t i = 0; i < n_dim; ++i) {
-        idist = sts_mindist(signal1[i], signal2[i], n, w, c);
+        idist = sts_mindist(signal1[i], signal2[i]);
         dist += idist * idist;
     }
     return sqrt(dist);
 }
 
-double ndim_mindist(int n_dim, sax_word a[n_dim], sax_word (*events)[n_dim], size_t n_events, int n, int w, int c, size_t skipid) {
+double ndim_mindist(int n_dim, sts_word a[n_dim], sts_word (*events)[n_dim], 
+        size_t n_events, size_t skipid) {
     double mindist = DBL_MAX;
     for (size_t trid = 0; trid < n_events; ++trid) {
         // since dist(x, x) == 0
         if (trid == skipid) continue;
         double dist = 
-            signal_dist(n_dim, a, events[trid], n, w, c);
+            signal_dist(n_dim, a, events[trid]);
         if (mindist > dist) mindist = dist;
     }
     return mindist;
 }
 
-double* evaluate_mindist(struct sax_signal_set A, struct sax_signal_set B, size_t n, int w, int c) {
+double* evaluate_mindist(struct sax_signal_set A, struct sax_signal_set B) {
     int inner = (A.series == B.series) && (A.n_series == B.n_series);
     double *mindists = safe_malloc(A.n_series * sizeof (double));
     for (size_t trid = 0; trid < A.n_series; ++trid) {
         mindists[trid] = 
-            ndim_mindist(NCHANNELS, A.series[trid], B.series, B.n_series, 
-                    n, w, c, inner ? trid : INT_MAX);
+            ndim_mindist(NCHANNELS, A.series[trid], B.series, B.n_series, inner ? trid : INT_MAX);
     }
     return mindists;
 }
@@ -264,15 +263,15 @@ int main(int argc, char **argv) {
         }
         int chid = atoi(argv[6]);
 
-        sax_word (*events)[1] = NULL;
+        sts_word (*events)[1] = NULL;
         size_t n_events = 0;
         for (size_t sid = 0; sid < NSESSIONS; ++sid) {
             struct session event = fetch_session_data(pid, chid, sid, evid);
             n_events += event.n_series;
-            events = safe_realloc(events, n_events * sizeof(sax_word[1]));
+            events = safe_realloc(events, n_events * sizeof(sts_word[1]));
             for (size_t frameid = 0; frameid < event.n_series; ++frameid) {
                 events[n_events - frameid - 1][0] = 
-                    sts_to_iSAX(event.series[frameid], EVLEN - (EVLEN % w), w, c);
+                    sts_to_sax(event.series[frameid], EVLEN - (EVLEN % w), w, c);
                 free(event.series[frameid]);
             }
             free(event.series);
@@ -286,12 +285,12 @@ int main(int argc, char **argv) {
             series_sizes[sid] = channel.n_series;
             dist_plot.series[sid] = malloc(channel.n_series * sizeof(double));
             for (size_t frameid = 0; frameid < channel.n_series; ++frameid) {
-                sax_word frame[1] = 
-                    {sts_to_iSAX(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
+                sts_word frame[1] = 
+                    {sts_to_sax(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
                 dist_plot.series[sid][frameid] = 
-                    ndim_mindist(1, frame, events, n_events, EVLEN, w, c, INT_MAX);
+                    ndim_mindist(1, frame, events, n_events, INT_MAX);
                 free(channel.series[frameid]);
-                free(frame[0]);
+                sts_free_word(frame[0]);
             }
             free(channel.series);
         }
@@ -302,9 +301,9 @@ int main(int argc, char **argv) {
         struct sax_signal_set match_trials = fetch_sax_signals(pid, evid, w, c);
         struct sax_signal_set nonmatch_trials = fetch_sax_signals(pid, -evid, w, c);
         double* match_mindists = 
-            evaluate_mindist(match_trials, match_trials, EVLEN, w, c);
+            evaluate_mindist(match_trials, match_trials);
         double* nonmatch_mindists = 
-            evaluate_mindist(nonmatch_trials, match_trials, EVLEN, w, c);
+            evaluate_mindist(nonmatch_trials, match_trials);
         double max_match_mindist = find_max(match_mindists, match_trials.n_series);
         double min_nonmatch_mindist = find_min(nonmatch_mindists, nonmatch_trials.n_series);
         printf("\n-- Overall: Maximum matching mindist == %lf VS \
