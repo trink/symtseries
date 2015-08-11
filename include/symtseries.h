@@ -44,9 +44,9 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c);
 
 /*
  * Appends new value to the end of given sax-word
- * If word.n_values == word.values->cnt drops the head value
- * Re-computes symbols in accordance with word.c and word.w
- * @param word: word to be updated
+ * If window->n_values == window->values->cnt drops the head value
+ * Re-computes symbols in accordance with window->c and window->w
+ * @param word: window to be updated
  * @param value: value to be appended
  * @returns freshly allocated sts_word if there are enough values 
  * to construct a word, NULL otherwise
@@ -85,9 +85,9 @@ void sts_free_window(sts_window w);
 
 /*
  * Resets a->values->cnt to zero and adjusts ring buffer accordingly
- * If there were a->symbols allocated, frees them and resets to NULL
- * @returns false if a is non-sliding word, otherwise returns true
+ * @param w: window to be reset to zero size
+ * @returns true in case of successfull reset and false if the window was malformed
  */
-bool sts_window_reset(sts_window a);
+bool sts_window_reset(sts_window w);
 
 #endif

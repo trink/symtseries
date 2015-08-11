@@ -405,10 +405,10 @@ double sts_mindist(sts_word a, sts_word b) {
     return distance;
 }
 
-bool sts_window_reset(sts_window a) {
-    if (a->values == NULL || a->values->buffer == NULL) return false;
-    a->values->tail = a->values->head = a->values->buffer;
-    a->values->cnt = 0;
+bool sts_window_reset(sts_window w) {
+    if (w->values == NULL || w->values->buffer == NULL) return false;
+    w->values->tail = w->values->head = w->values->buffer;
+    w->values->cnt = 0;
     return true;
 }
 
