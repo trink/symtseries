@@ -19,26 +19,28 @@ typedef unsigned char sts_symbol;
 
 struct sts_ring_buffer;
 
-typedef struct sts_ring_buffer sts_ring_buffer;
-
 typedef struct sts_word {
     size_t n_values;
     size_t w;
     size_t c; // TODO: migrate to multi-cardinal words (for indexing)
     sts_symbol *symbols;
-    sts_ring_buffer* values;
-} sts_word;
+} *sts_word;
+
+typedef struct sts_window {
+    size_t n_values;
+    size_t w;
+    size_t c;
+    struct sts_ring_buffer* values;
+} *sts_window;
 
 /*
- * Initializes empty sliding-window-like-container
- * Any operations on the word will fail until
- * at least n values are provided by append_value(s)
+ * Initializes empty window-like-container
  * @param n: size of the window
  * @param c: code's cardinality
  * @param w: length of the produced code, should be divisor of n
- * @returns {0, 0, 0, NULL, NULL} on failure
+ * @returns NULL on failure or allocated window
  */
-sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
+sts_window sts_new_window(size_t n, size_t w, unsigned int c);
 
 /*
  * Appends new value to the end of given sax-word
@@ -46,17 +48,18 @@ sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with word.c and word.w
  * @param word: word to be updated
  * @param value: value to be appended
- * @returns false on failure, true on success
+ * @returns freshly allocated sts_word if there are enough values 
+ * to construct a word, NULL otherwise
  * TODO: lazy SAX symbols update?
  */
-bool sts_append_value(sts_word *word, double value);
+sts_word sts_append_value(sts_window window, double value);
 
 /*
  * Returns symbolic representation of series which doesn't store initial values
  * @param n_values: number of elements in series
  * @param c: code's cardinality
  * @param w: length of returned code, should be divisor of n
- * @returns {0, 0, 0, NULL, NULL} on failure
+ * @returns NULL on failure or freshly-alocated sts_word
  */
 sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
 
@@ -75,17 +78,16 @@ double sts_mindist(sts_word a, sts_word b);
 void sts_free_word(sts_word a);
 
 /*
- * Returns true if a's symbols are initialized 
- * (either non-sliding word or if a.values->cnt == a.n_values
- * @param a: sax word
+ * Frees allocated window
+ * @param w: pre-allocated window
  */
-bool sts_word_is_ready(sts_word a);
+void sts_free_window(sts_window w);
 
 /*
  * Resets a->values->cnt to zero and adjusts ring buffer accordingly
  * If there were a->symbols allocated, frees them and resets to NULL
  * @returns false if a is non-sliding word, otherwise returns true
  */
-bool sts_word_reset(sts_word *a);
+bool sts_window_reset(sts_window a);
 
 #endif
