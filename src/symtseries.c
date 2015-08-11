@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* Breakpoints used in iSAX symbol estimation */
 static const double breaks[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1] = 
@@ -334,25 +335,25 @@ static void apply_sax_transform(size_t n, size_t w, unsigned int c, sts_symbol *
     }
 }
 
-int sts_append_value(sts_word *word, double value) {
+bool sts_append_value(sts_word *word, double value) {
     if (word == NULL || word->values == NULL || word->values->buffer == NULL ||
             word->c < 2 || word->c > STS_MAX_CARDINALITY)
-        return 0;
+        return false;
     rb_push(word->values, value);
     if (word->symbols == NULL && word->values->cnt == word->n_values) {
         sts_symbol *symbols = malloc(word->w * sizeof(sts_symbol));
-        if (!symbols) return 0;
+        if (!symbols) return false;
         word->symbols = symbols;
     }
     if (word->symbols != NULL) {
         double *norm_series = 
             normalize(word->values->tail, word->n_values, word->values->head, 
                     word->values->buffer, word->values->buffer_end);
-        if (!norm_series) return 0;
+        if (!norm_series) return false;
         apply_sax_transform(word->n_values, word->w, word->c, word->symbols, norm_series);
         free(norm_series);
     }
-    return 1;
+    return true;
 }
 
 sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
@@ -388,6 +389,21 @@ double sts_mindist(sts_word a, sts_word b) {
     }
     distance = sqrt((double) n / (double) w) * sqrt(distance);
     return distance;
+}
+
+bool sts_word_is_ready(sts_word a) {
+    return a.symbols != NULL;
+}
+
+bool sts_word_reset(sts_word *a) {
+    if (a->values == NULL || a->values->buffer == NULL) return false;
+    a->values->tail = a->values->head = a->values->buffer;
+    a->values->cnt = 0;
+    if (a->symbols != NULL) {
+        free(a->symbols);
+        a->symbols = NULL;
+    }
+    return true;
 }
 
 void sts_free_word(sts_word a) {
@@ -507,9 +523,23 @@ static char *test_sliding_word() {
             }
             mu_assert(dyword.values->cnt == 16, "ring buffer failed");
             mu_assert(dyword.symbols != NULL, "ring buffer failed");
+            mu_assert(sts_word_is_ready(dyword), "sts_word_is_ready failed");
             mu_assert(memcmp(word.symbols, dyword.symbols, w) == 0, "ring buffer failed");
             mu_assert(sts_append_value(&dyword, 0) != 0, "ring buffer failed");
             mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            mu_assert(sts_word_is_ready(dyword), "sts_word_is_ready failed");
+
+            mu_assert(!sts_word_reset(&word), "sts_word_reset failed on non-sliding word");
+            mu_assert(sts_word_reset(&dyword), "sts_word_reset failed on sliding word");
+
+            for (size_t i = 0; i < 16; ++i) {
+                mu_assert(sts_append_value(&dyword, seq[i]) != 0, "sts_append_value failed");
+            }
+            mu_assert(sts_word_is_ready(dyword), "sts_word_is_ready failed");
+            mu_assert(memcmp(word.symbols, dyword.symbols, w) == 0, "ring buffer failed");
+            mu_assert(sts_append_value(&dyword, 0) != 0, "ring buffer failed");
+            mu_assert(dyword.values->cnt == 16, "ring buffer failed");
+            mu_assert(sts_word_is_ready(dyword), "sts_word_is_ready failed");
             sts_free_word(word);
             sts_free_word(dyword);
         }

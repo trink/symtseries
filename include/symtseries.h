@@ -10,6 +10,7 @@
 #define _SYMTSERIES_H_
 #include <float.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
@@ -45,10 +46,10 @@ sts_word sts_new_sliding_word(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with word.c and word.w
  * @param word: word to be updated
  * @param value: value to be appended
- * @returns 0 on failure, 1 otherwise
+ * @returns false on failure, true on success
  * TODO: lazy SAX symbols update?
  */
-int sts_append_value(sts_word *word, double value);
+bool sts_append_value(sts_word *word, double value);
 
 /*
  * Returns symbolic representation of series which doesn't store initial values
@@ -72,5 +73,19 @@ double sts_mindist(sts_word a, sts_word b);
  * @param a: pre-allocated word which contents should be freed
  */
 void sts_free_word(sts_word a);
+
+/*
+ * Returns true if a's symbols are initialized 
+ * (either non-sliding word or if a.values->cnt == a.n_values
+ * @param a: sax word
+ */
+bool sts_word_is_ready(sts_word a);
+
+/*
+ * Resets a->values->cnt to zero and adjusts ring buffer accordingly
+ * If there were a->symbols allocated, frees them and resets to NULL
+ * @returns false if a is non-sliding word, otherwise returns true
+ */
+bool sts_word_reset(sts_word *a);
 
 #endif
