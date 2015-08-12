@@ -7,39 +7,30 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <stdbool.h>
 
 #include "debug.h"
-
-static const char* getfield(char* line, int num)
-{
-    const char* tok;
-    for (tok = strtok(line, ",");
-            tok && *tok;
-            tok = strtok(NULL, ",\n"))
-    {
-        if (!--num)
-            return tok;
-    }
-    return NULL;
-}
 
 #define BUF_SIZE 10000
 
 #define NCHANNELS 32
 #define NSESSIONS 8
+#define NEVENTS 6
 #define EVLEN 150
 
+typedef double dsignal[NCHANNELS];
 typedef sts_word sax_signal[NCHANNELS];
 
-struct sax_signal_set {
-    sax_signal *series;
-    size_t n_series;
-};
+typedef struct sax_signal_set {
+    sax_signal *words;
+    size_t n_words;
+} sax_signal_set;
 
-struct session {
-    double **series;
-    size_t n_series;
-};
+typedef struct session {
+    dsignal *values;
+    short *event_markers;
+    size_t n_values;
+} session;
 
 void *safe_realloc(void *mem, size_t size) {
     void *new_mem = realloc(mem, size);
@@ -59,124 +50,148 @@ void *safe_malloc(size_t size) {
     return new_mem;
 }
 
-void push_back(double* *series, size_t* size, double value) {
-    *series = safe_realloc(*series, (++(*size)) * sizeof(double)); \
+/* Yep, these 4 could be macroses, 
+ * but one does not simply use them to mimic generics in C */
+void push_back_double(double* *series, size_t* size, double value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof **series);
     (*series)[(*size) - 1] = value;
 }
 
-void push_back_pointer(double* **series, size_t* size, double* value) {
-    *series = safe_realloc(*series, (++(*size)) * sizeof(double*)); \
+void push_back_short(short* *series, size_t* size, short value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof **series);
     (*series)[(*size) - 1] = value;
 }
 
-void push_back_buffer(double* *val_buffer, size_t* n_values, double value, 
-        double* **series, size_t* n_trials) {
-    push_back(val_buffer, n_values, value);
-    if (*n_values >= EVLEN) {
-        double *new_subseq = safe_malloc(EVLEN * sizeof(double));
-        memcpy(new_subseq, *val_buffer + (*n_values - EVLEN), EVLEN);
-        push_back_pointer(series, n_trials, new_subseq);
+void push_back_signal(dsignal* *series, size_t* size, dsignal value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof **series);
+    memcpy((*series)[(*size) - 1], value, NCHANNELS * sizeof(double));
+}
+
+void push_back_sax_signal(sax_signal* *series, size_t* size, sax_signal value) {
+    *series = safe_realloc(*series, (++(*size)) * sizeof **series);
+    memcpy((*series)[(*size) - 1], value, NCHANNELS * sizeof(sts_word));
+}
+
+session fetch_session_data(int pid, int sid, bool train) {
+    char buf[BUF_SIZE];
+    char *prefix = train ? "data/train" : "data/test";
+    FILE *dataf, *eventsf = NULL;
+    snprintf(buf, BUF_SIZE, 
+            "%s/subj%d_series%d_data.csv", prefix, pid + 1, sid + 1);
+    dataf = fopen(buf, "r");
+    if (train) {
+        snprintf(buf, BUF_SIZE, 
+                "%s/subj%d_series%d_events.csv", prefix, pid + 1, sid + 1);
+        eventsf = fopen(buf, "r");
     }
+    if (!dataf || (train && !eventsf)) return (session) {NULL, NULL, 0};
+    // Eat-up both csv headers
+    if (fgets(buf, BUF_SIZE, dataf) == NULL) return (session) {NULL, NULL, 0};
+    if (train && fgets(buf, BUF_SIZE, eventsf) == NULL) return (session) {NULL, NULL, 0};
+
+    session data = (session) {NULL, NULL, 0};
+    while (fgets(buf, BUF_SIZE, dataf)) {
+        // Parse all channel data
+        char *tmp = strdup(buf);
+        dsignal sig;
+        size_t i = 0;
+        for (char *tok = strtok(tmp, ","); tok && *tok; tok = strtok(NULL, ",\n")) {
+            if (i++ == 0) continue;
+            double value = strtod(tok, NULL);
+            sig[i-2] = value;
+        }
+        push_back_signal(&data.values, &data.n_values, sig);
+        free(tmp);
+
+        if (train) {
+            // Parse event type
+            if (fgets(buf, BUF_SIZE, eventsf) == NULL) return (session) {NULL, NULL, 0};
+            tmp = strdup(buf);
+            short event_type = 0;
+            i = 0;
+            for (char *tok = strtok(tmp, ","); tok && *tok; tok = strtok(NULL, ",\n")) {
+                if (strcmp(tok, "1") == 0) {
+                    event_type = i;
+                    break;
+                }
+                ++i;
+            }
+            --data.n_values;
+            push_back_short(&data.event_markers, &data.n_values, event_type);
+            free(tmp);
+        }
+    }
+    fclose(dataf);
+    fclose(eventsf);
+    return data;
+}
+
+session *fetch_train_data(int pid) { 
+    session *train = malloc(NSESSIONS * sizeof *train);
+    for (size_t sid = 0; sid < NSESSIONS; ++sid) {
+        train[sid] = fetch_session_data(pid, sid, true);
+        if (train[sid].values == NULL) {
+            printf("I/O problems occured, exiting\n");
+            exit(-1);
+        }
+    }
+    return train;
 }
 
 /*
- * Parses subject-specific files in train and 
- * returns the subrange corresponding to specified activity
  * @param evid: 1-based id of the event. 
  * If evid is negative than each subrange not corresponding to event #evid 
  * of length EVLEN will be returned
  * If evid is zero, than all session subsequences of length EVLEN will be returned
  */
-struct session fetch_session_data(int pid, int chid, int sid, int evid) {
-    char buf[BUF_SIZE];
-    snprintf(buf, BUF_SIZE, 
-            "data/train/subj%d_series%d_data.csv", pid + 1, sid + 1);
-    FILE *dataf = fopen(buf, "r");
-    snprintf(buf, BUF_SIZE, 
-            "data/train/subj%d_series%d_events.csv", pid + 1, sid + 1);
-    FILE *eventsf = fopen(buf, "r");
-    if (!dataf || !eventsf) return (struct session) {NULL, 0};
-    // Eat-up both csv headers
-    if (fgets(buf, BUF_SIZE, dataf) == NULL) return (struct session) {NULL, 0};
-    if (fgets(buf, BUF_SIZE, eventsf) == NULL) return (struct session) {NULL, 0};
+struct sax_signal_set 
+session_to_event_words(session *data, size_t n_sessions, short evid, int w, int c) {
+    sax_signal *words = NULL;
+    size_t n_words = 0;
+    sts_window sax_window[NCHANNELS];
+    for (size_t chid = 0; chid < NCHANNELS; ++chid)
+       sax_window[chid] = sts_new_window(EVLEN, w, c);
 
-    size_t n_values = 0, n_trials = 0;
-    int new = 1;
-    double *val_buffer = NULL;
-    double **series = NULL;
-    printf("%d, %d, %d, %d\n", pid, chid, sid, evid);
-    fflush(stdout);
-    while (fgets(buf, BUF_SIZE, eventsf)) {
-        char *tmp = strdup(buf);
-        int event_triggered = (strcmp(getfield(tmp, abs(evid)+1), "0") == 1);
-        free(tmp);
-        if (fgets(buf, BUF_SIZE, dataf) == NULL) return (struct session) {NULL, 0};
-        tmp = strdup(buf);
-        double value = strtod(getfield(tmp, chid+2), NULL);
-        free(tmp);
-        if (evid == 0) {
-            push_back_buffer(&val_buffer, &n_values, value, &series, &n_trials);
-        } else if (evid > 0) {
-                // Normal fetch
-                if (!event_triggered) {
-                    // No activity on event of interest registered -> skip
-                    new = 1;
-                    continue;
+    for (size_t sid = 0; sid < n_sessions; ++sid) {
+        if (evid != 0 && data[sid].event_markers == NULL) {
+            printf("No event_markers provided for marker-based fetch");
+            exit(-1);
+        }
+        for (size_t chid = 0; chid < NCHANNELS; ++chid)
+            sts_window_reset(sax_window[chid]);
+        for (size_t trid = 0; trid < data[sid].n_values; ++trid) {
+            sax_signal sig;
+            bool do_push = false;
+            for (size_t chid = 0; chid < NCHANNELS; ++chid) {
+                double value = data[sid].values[trid][chid];
+                sts_word word = NULL;
+                if (evid == 0) {
+                    word = sts_append_value(sax_window[chid], value);
+                } else {
+                    bool event_triggered = (data[sid].event_markers[trid] == abs(evid));
+                    if ((event_triggered && evid > 0) ||
+                        (!event_triggered && evid < 0)) {
+                        word = sts_append_value(sax_window[chid], value);
+                    } else {
+                        sts_window_reset(sax_window[chid]);
+                    }
                 }
-                if (new) {
-                    new = 0;
-                    n_values = 0;
-                    push_back_pointer(&series, &n_trials, NULL);
+                if (word != NULL) {
+                    do_push = true;
+                    sig[chid] = word;
                 }
-                push_back(&series[n_trials-1], &n_values, value);
-        } else {
-            // Inverse fetch
-            if (event_triggered && val_buffer != NULL) {
-                // Overlapped with event subsequence -- drop data.
-                // We'd be better off with circular buffer, 
-                // but this will quite suffice for current usecase
-                n_values = 0;
-                free(val_buffer);
-                val_buffer = NULL;
-                continue;
             }
-            push_back_buffer(&val_buffer, &n_values, value, &series, &n_trials);
+            if (do_push) {
+                push_back_sax_signal(&words, &n_words, sig);
+            }
         }
     }
-    if (val_buffer != NULL) free(val_buffer);
-    fclose(dataf);
-    fclose(eventsf);
-    return (struct session) {series, n_trials};
+    for (size_t chid = 0; chid < NCHANNELS; ++chid)
+        sts_free_window(sax_window[chid]);
+    return (sax_signal_set) {words, n_words};
 }
 
-struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
-    sax_signal *series = NULL;
-    size_t n_series = 0;
-    for (size_t sid = 0; sid < NSESSIONS; ++sid) {
-        for (size_t chid = 0; chid < NCHANNELS; ++chid) {
-            struct session trials = 
-                fetch_session_data(pid, chid, sid, evid);
-            if (trials.series == NULL) {
-                printf("I/O problems occured, exiting\n");
-                exit(-1);
-            }
-            if (chid == 0) {
-                n_series += trials.n_series; 
-                series = safe_realloc(series, n_series * sizeof *series);
-            }
-            for (size_t trid = 0; trid < trials.n_series; ++trid) {
-                // SAX conversion is defined for even partitioning only
-                series[n_series - trid - 1][chid] = 
-                    sts_to_sax(trials.series[trid], EVLEN - (EVLEN % w), w, c);
-                free(trials.series[trid]);
-            }
-            free(trials.series);
-        }
-    }
-    return (struct sax_signal_set) {series, n_series};
-}
-
-static double signal_dist(size_t n_dim, sts_word signal1[n_dim], sts_word signal2[n_dim]) {
+double signal_dist(size_t n_dim, sts_word signal1[n_dim], sts_word signal2[n_dim]) {
     double dist = 0, idist;
     for (size_t i = 0; i < n_dim; ++i) {
         idist = sts_mindist(signal1[i], signal2[i]);
@@ -199,11 +214,11 @@ double ndim_mindist(int n_dim, sts_word a[n_dim], sts_word (*events)[n_dim],
 }
 
 double* evaluate_mindist(struct sax_signal_set A, struct sax_signal_set B) {
-    int inner = (A.series == B.series) && (A.n_series == B.n_series);
-    double *mindists = safe_malloc(A.n_series * sizeof (double));
-    for (size_t trid = 0; trid < A.n_series; ++trid) {
+    int inner = (A.words == B.words) && (A.n_words == B.n_words);
+    double *mindists = safe_malloc(A.n_words * sizeof *mindists);
+    for (size_t trid = 0; trid < A.n_words; ++trid) {
         mindists[trid] = 
-            ndim_mindist(NCHANNELS, A.series[trid], B.series, B.n_series, inner ? trid : INT_MAX);
+            ndim_mindist(NCHANNELS, A.words[trid], B.words, B.n_words, inner ? trid : INT_MAX);
     }
     return mindists;
 }
@@ -222,19 +237,6 @@ double find_min(double *arr, size_t size) {
         if (arr[i] < min) min = arr[i];
     }
     return min;
-}
-
-void dump_session_data(struct session data, size_t *series_sizes, char *prefix) {
-    char buf[BUF_SIZE];
-    for (size_t trid = 0; trid < data.n_series; ++trid) {
-        snprintf(buf, BUF_SIZE, "plot/%s%zu", prefix, trid + 1);
-        FILE *out = fopen(buf, "w");
-        for (size_t frameid = 0; frameid < series_sizes[trid]; ++frameid) {
-            fprintf(out, "%.2f,%lf\n", 
-                    (float) frameid, data.series[trid][frameid]);
-        }
-        fclose(out);
-    }
 }
 
 int main(int argc, char **argv) {
@@ -262,50 +264,52 @@ int main(int argc, char **argv) {
             exit(-1);
         }
         int chid = atoi(argv[6]);
+        char buf[BUF_SIZE];
 
-        sts_word (*events)[1] = NULL;
-        size_t n_events = 0;
-        for (size_t sid = 0; sid < NSESSIONS; ++sid) {
-            struct session event = fetch_session_data(pid, chid, sid, evid);
-            n_events += event.n_series;
-            events = safe_realloc(events, n_events * sizeof(sts_word[1]));
-            for (size_t frameid = 0; frameid < event.n_series; ++frameid) {
-                events[n_events - frameid - 1][0] = 
-                    sts_to_sax(event.series[frameid], EVLEN - (EVLEN % w), w, c);
-                free(event.series[frameid]);
+        session *data = fetch_train_data(pid);
+        sax_signal_set ndim_events = session_to_event_words(data, NSESSIONS, evid, w, c);
+        sts_word (*events)[1] = malloc(ndim_events.n_words * sizeof *events);
+        size_t n_events = ndim_events.n_words;
+        for (size_t i = 0; i < n_events; ++i) {
+            events[i][0] = ndim_events.words[i][chid];
+            for (int j = 0; j < NCHANNELS; ++j) {
+                if (j != chid) sts_free_word(ndim_events.words[i][j]);
             }
-            free(event.series);
         }
-        struct session dist_plot;
-        dist_plot.n_series = NSESSIONS;
-        dist_plot.series = malloc(NSESSIONS * sizeof(double *));
-        size_t series_sizes[NSESSIONS];
+
         for (size_t sid = 0; sid < NSESSIONS; ++sid) {
-            struct session channel = fetch_session_data(pid, chid, sid, 0);
-            series_sizes[sid] = channel.n_series;
-            dist_plot.series[sid] = malloc(channel.n_series * sizeof(double));
-            for (size_t frameid = 0; frameid < channel.n_series; ++frameid) {
-                sts_word frame[1] = 
-                    {sts_to_sax(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
-                dist_plot.series[sid][frameid] = 
-                    ndim_mindist(1, frame, events, n_events, INT_MAX);
-                free(channel.series[frameid]);
-                sts_free_word(frame[0]);
+            snprintf(buf, BUF_SIZE, 
+                    "plot/dist_plot_%d_%d_%d_%d_%d_%zu", pid, evid, chid, w, c, sid + 1);
+            FILE *out = fopen(buf, "w");
+            if (out == NULL) {
+                printf("IO Error\n");
+                exit(-1);
             }
-            free(channel.series);
+
+            sax_signal_set all = session_to_event_words(data + sid, 1, 0, w, c);
+            for (size_t frameid = 0; frameid < all.n_words; ++frameid) {
+                sts_word frame[1] = {all.words[frameid][chid]};
+                double dist = ndim_mindist(1, frame, events, n_events, INT_MAX);
+
+                fprintf(out, "%.2f,%lf\n", (float) frameid, dist);
+                for (size_t i = 0; i < NCHANNELS; ++i) {
+                    sts_free_word(all.words[frameid][i]);
+                }
+            }
+            fclose(out);
         }
-        char name_buf[BUF_SIZE];
-        snprintf(name_buf, BUF_SIZE, "dist_plot_%d_%d_%d_%d_", pid, evid, chid, w);
-        dump_session_data(dist_plot, series_sizes, name_buf);
     } else {
-        struct sax_signal_set match_trials = fetch_sax_signals(pid, evid, w, c);
-        struct sax_signal_set nonmatch_trials = fetch_sax_signals(pid, -evid, w, c);
+        session *train = fetch_train_data(pid);
+        struct sax_signal_set match_trials = 
+            session_to_event_words(train, NSESSIONS, evid, w, c);
+        struct sax_signal_set nonmatch_trials = 
+            session_to_event_words(train, NSESSIONS, -evid, w, c);
         double* match_mindists = 
             evaluate_mindist(match_trials, match_trials);
         double* nonmatch_mindists = 
             evaluate_mindist(nonmatch_trials, match_trials);
-        double max_match_mindist = find_max(match_mindists, match_trials.n_series);
-        double min_nonmatch_mindist = find_min(nonmatch_mindists, nonmatch_trials.n_series);
+        double max_match_mindist = find_max(match_mindists, match_trials.n_words);
+        double min_nonmatch_mindist = find_min(nonmatch_mindists, nonmatch_trials.n_words);
         printf("\n-- Overall: Maximum matching mindist == %lf VS \
                 Minimum nonmatching mindist == %lf --\n", max_match_mindist, min_nonmatch_mindist);
     }
