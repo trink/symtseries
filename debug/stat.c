@@ -28,7 +28,7 @@ typedef struct sax_signal_set {
 
 typedef struct session {
     dsignal *values;
-    short *event_markers;
+    unsigned int *event_markers;
     size_t n_values;
 } session;
 
@@ -57,7 +57,7 @@ void push_back_double(double* *series, size_t* size, double value) {
     (*series)[(*size) - 1] = value;
 }
 
-void push_back_short(short* *series, size_t* size, short value) {
+void push_back_unsigned(unsigned int* *series, size_t* size, unsigned int value) {
     *series = safe_realloc(*series, (++(*size)) * sizeof **series);
     (*series)[(*size) - 1] = value;
 }
@@ -107,17 +107,16 @@ session fetch_session_data(int pid, int sid, bool train) {
             // Parse event type
             if (fgets(buf, BUF_SIZE, eventsf) == NULL) return (session) {NULL, NULL, 0};
             tmp = strdup(buf);
-            short event_type = 0;
+            size_t event_type = 0;
             i = 0;
             for (char *tok = strtok(tmp, ","); tok && *tok; tok = strtok(NULL, ",\n")) {
                 if (strcmp(tok, "1") == 0) {
-                    event_type = i;
-                    break;
+                    event_type |= (1 << i);
                 }
                 ++i;
             }
             --data.n_values;
-            push_back_short(&data.event_markers, &data.n_values, event_type);
+            push_back_unsigned(&data.event_markers, &data.n_values, event_type);
             free(tmp);
         }
     }
@@ -149,6 +148,7 @@ session_to_event_words(session *data, size_t n_sessions, short evid, int w, int 
     sax_signal *words = NULL;
     size_t n_words = 0;
     sts_window sax_window[NCHANNELS];
+    short aevid = abs(evid);
     for (size_t chid = 0; chid < NCHANNELS; ++chid)
        sax_window[chid] = sts_new_window(EVLEN, w, c);
 
@@ -168,7 +168,7 @@ session_to_event_words(session *data, size_t n_sessions, short evid, int w, int 
                 if (evid == 0) {
                     word = sts_append_value(sax_window[chid], value);
                 } else {
-                    bool event_triggered = (data[sid].event_markers[trid] == abs(evid));
+                    bool event_triggered = (data[sid].event_markers[trid] & (1 << aevid));
                     if ((event_triggered && evid > 0) ||
                         (!event_triggered && evid < 0)) {
                         word = sts_append_value(sax_window[chid], value);
@@ -290,8 +290,9 @@ int main(int argc, char **argv) {
             for (size_t frameid = 0; frameid < all.n_words; ++frameid) {
                 sts_word frame[1] = {all.words[frameid][chid]};
                 double dist = ndim_mindist(1, frame, events, n_events, INT_MAX);
+                bool match = (data[sid].event_markers[frameid] & (1 << evid));
 
-                fprintf(out, "%.2f,%lf\n", (float) frameid, dist);
+                fprintf(out, "%.2f,%lf,%.2f\n", (float) frameid, dist, match ? 1.0 : NAN);
                 for (size_t i = 0; i < NCHANNELS; ++i) {
                     sts_free_word(all.words[frameid][i]);
                 }
