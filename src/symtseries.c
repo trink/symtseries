@@ -227,60 +227,60 @@ static sts_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-static double *normalize(const double *series_begin, size_t n_values, 
-        const double *series_end, const double *buffer_start, const double *buffer_break) {
+static void normalize(const double *series_begin, size_t n_values, const double *series_end, 
+        const double *buffer_start, const double *buffer_break, double *out) {
     if (series_end == NULL) series_end = series_begin + n_values;
     size_t actual_n_values = n_values;
     size_t i = 0;
     const double *value = series_begin;
-    double *series = malloc(n_values * sizeof(double));
-    if (!series) return NULL;
 
     // Copy elements from buffer into *series
     while (value != series_end) {
-        series[i++] = *value;
+        out[i++] = *value;
         if (++value == buffer_break) value = buffer_start;
     }
 
     double mu = 0, std = 0;
     // Estimate mean
     for (i = 0; i < n_values; ++i) {
-        if (!isfinite(series[i])) {
+        if (!isfinite(out[i])) {
             --actual_n_values;
         } else {
-            mu += series[i];
+            mu += out[i];
         }
     }
     mu /= actual_n_values > 0 ? actual_n_values : 1;
 
     // Estimate variance
     for (i = 0; i < n_values; ++i) {
-        if (!isfinite(series[i])) continue;
-        std += (mu - series[i]) * (mu - series[i]);
+        if (!isfinite(out[i])) continue;
+        std += (mu - out[i]) * (mu - out[i]);
     }
     std /= actual_n_values > 0 ? actual_n_values : 1;
     std = sqrt(std);
 
-    // Scale *series
+    // Scale *out
     if (std < STS_STAT_EPS && actual_n_values != 0) {
         // to prevent infinite-scaling for almost-stationary sequencies
-        memset(series, 0, n_values * sizeof(double));
+        memset(out, 0, n_values * sizeof *out);
     } else {
         for (i = 0; i < n_values; ++i) {
-            if (isfinite(series[i])) {
-                series[i] = (series[i] - mu) / std;
+            if (isfinite(out[i])) {
+                out[i] = (out[i] - mu) / std;
             }
         }
     }
-
-    return series;
 }
 
 static sts_window new_window(size_t n, size_t w, short c, struct sts_ring_buffer *values) {
     sts_window window = malloc(sizeof *window);
-    window->n_values = n;
-    window->w = w;
-    window->c = c;
+    window->current_word.n_values = n;
+    window->current_word.w = w;
+    window->current_word.c = c;
+    window->current_word.symbols = malloc(w * sizeof *window->current_word.symbols);
+    if (window->current_word.symbols == NULL) return NULL;
+    window->norm_buffer = malloc(n * sizeof *window->norm_buffer);
+    if (window->norm_buffer == NULL) return NULL;
     window->values = values;
     return window;
 }
@@ -289,10 +289,10 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c) {
     if (n % w != 0 || c > STS_MAX_CARDINALITY || c < 2) {
         return NULL;
     }
-    struct sts_ring_buffer *values = malloc(sizeof(*values));
+    struct sts_ring_buffer *values = malloc(sizeof *values);
     if (!values) return NULL;
     values->cnt=0;
-    values->buffer = malloc((n + 1) * sizeof values->buffer);
+    values->buffer = malloc((n + 1) * sizeof *values->buffer);
     if (!values->buffer) {
         free(values);
         return NULL;
@@ -353,29 +353,26 @@ static sts_word new_word(size_t n, size_t w, short c, sts_symbol *symbols) {
 
 sts_word sts_append_value(sts_window window, double value) {
     if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
-            window->c < 2 || window->c > STS_MAX_CARDINALITY)
+            window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
         return NULL;
     rb_push(window->values, value);
-    if (window->values->cnt < window->n_values) return NULL;
+    if (window->values->cnt < window->current_word.n_values) return NULL;
 
-    sts_symbol *symbols = malloc(window->w * sizeof(sts_symbol));
-    if (!symbols) return NULL;
-    double *norm_series = 
-        normalize(window->values->tail, window->n_values, window->values->head, 
-                window->values->buffer, window->values->buffer_end);
-    if (!norm_series) return NULL;
-    apply_sax_transform(window->n_values, window->w, window->c, symbols, norm_series);
-    free(norm_series);
-    return new_word(window->n_values, window->w, window->c, symbols);
+    normalize(window->values->tail, window->current_word.n_values, window->values->head, 
+            window->values->buffer, window->values->buffer_end, window->norm_buffer);
+    apply_sax_transform(window->current_word.n_values, window->current_word.w, 
+            window->current_word.c, window->current_word.symbols, window->norm_buffer);
+    return &window->current_word;
 }
 
 sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned int c) {
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return NULL;
     }
-    double *norm_series = normalize(series, n_values, NULL, NULL, NULL);
+    double *norm_series = malloc(n_values * sizeof *norm_series);
     if (!norm_series) return NULL;
-    sts_symbol *symbols =  malloc(w * sizeof(sts_symbol));
+    normalize(series, n_values, NULL, NULL, NULL, norm_series);
+    sts_symbol *symbols =  malloc(w * sizeof *symbols);
     if (!symbols) return NULL;
     apply_sax_transform(n_values, w, c, symbols, norm_series);
     free(norm_series);
@@ -417,6 +414,10 @@ void sts_free_window(sts_window w) {
         free(w->values->buffer);
         free(w->values);
     }
+    if (w->current_word.symbols != NULL)
+        free(w->current_word.symbols);
+    if (w->norm_buffer != NULL)
+        free(w->norm_buffer);
     free(w);
 }
 
@@ -454,7 +455,8 @@ static char *test_get_symbol_breaks() {
 
 static char *test_to_sax_normalization() {
     double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
-    double *normseq = normalize(seq, 16, NULL, NULL, NULL);
+    double *normseq = malloc(16 * sizeof *normseq);
+    normalize(seq, 16, NULL, NULL, NULL, normseq);
     mu_assert(normseq != NULL, "normalize failed");
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
@@ -529,10 +531,8 @@ static char *test_to_sax_stationary() {
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
     mu_assert((word)->symbols != NULL, "ring buffer failed"); \
     mu_assert(memcmp((test)->symbols, (word)->symbols, w) == 0, "ring buffer failed"); \
-    sts_free_word((word)); \
     mu_assert(((word) = sts_append_value((window), 0)) != NULL, "ring buffer failed"); \
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
-    sts_free_word((word));
 
 static char *test_sliding_word() {
     double seq[16] = 

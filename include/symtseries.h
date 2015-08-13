@@ -27,10 +27,9 @@ typedef struct sts_word {
 } *sts_word;
 
 typedef struct sts_window {
-    size_t n_values;
-    size_t w;
-    size_t c;
     struct sts_ring_buffer* values;
+    struct sts_word current_word;
+    double *norm_buffer;
 } *sts_window;
 
 /*
@@ -48,7 +47,7 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with window->c and window->w
  * @param word: window to be updated
  * @param value: value to be appended
- * @returns freshly allocated sts_word if there are enough values 
+ * @returns pointer to updated window->sts_word if there are enough values 
  * to construct a word, NULL otherwise
  * TODO: lazy SAX symbols update?
  */
