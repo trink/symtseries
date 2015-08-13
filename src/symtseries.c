@@ -227,12 +227,12 @@ static sts_symbol get_symbol(double value, unsigned int c) {
     return 0;
 }
 
-static double *normalize(double *series_begin, size_t n_values, 
-        double *series_end, double *buffer_start, double *buffer_break) {
+static double *normalize(const double *series_begin, size_t n_values, 
+        const double *series_end, const double *buffer_start, const double *buffer_break) {
     if (series_end == NULL) series_end = series_begin + n_values;
     size_t actual_n_values = n_values;
     size_t i = 0;
-    double *value = series_begin;
+    const double *value = series_begin;
     double *series = malloc(n_values * sizeof(double));
     if (!series) return NULL;
 
@@ -369,7 +369,7 @@ sts_word sts_append_value(sts_window window, double value) {
     return new_word(window->n_values, window->w, window->c, symbols);
 }
 
-sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
+sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned int c) {
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return NULL;
     }
@@ -382,7 +382,7 @@ sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c) {
     return new_word(n_values, w, c, symbols);
 }
 
-double sts_mindist(sts_word a, sts_word b) {
+double sts_mindist(const sts_word a, const sts_word b) {
     // TODO: mindist estimation for words of different n, w and c
     if (a->c != b->c || a->w != b->w || a->n_values != b->n_values) return NAN;
     size_t w = a->w, n = a->n_values;

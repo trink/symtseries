@@ -61,7 +61,7 @@ sts_word sts_append_value(sts_window window, double value);
  * @param w: length of returned code, should be divisor of n
  * @returns NULL on failure or freshly-alocated sts_word
  */
-sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
+sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned int c);
 
 /*
  * Returns the lowerbounding approximation on distance 
@@ -69,7 +69,7 @@ sts_word sts_to_sax(double *series, size_t n_values, size_t w, unsigned int c);
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */
-double sts_mindist(sts_word a, sts_word b);
+double sts_mindist(const sts_word a, const sts_word b);
 
 /*
  * Frees allocated memory for sax representation
