@@ -42,7 +42,7 @@ void show_iSAX(sts_word word, size_t w, unsigned int c) {
 }
 
 void show_conv_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
-    sts_word word = sts_to_sax(series, n_values, w, c);
+    sts_word word = sts_from_double_array(series, n_values, w, c);
     if (word == NULL) {
         printf("OOps, yet unable to manage given params\n");
         return;

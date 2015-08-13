@@ -365,7 +365,7 @@ sts_word sts_append_value(sts_window window, double value) {
     return &window->current_word;
 }
 
-sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned int c) {
+sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, unsigned int c) {
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return NULL;
     }
@@ -379,10 +379,26 @@ sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned in
     return new_word(n_values, w, c, symbols);
 }
 
+sts_word sts_from_sax_string(const char *symbols, size_t c) {
+    if (c < 2 || c > STS_MAX_CARDINALITY) return NULL;
+    size_t w = strlen(symbols);
+    sts_symbol *sts_symbols = malloc(w * sizeof *sts_symbols);
+    if (!sts_symbols) return NULL;
+    for (size_t i = 0; i < w; ++i) {
+        if (symbols[i] < 'A' || symbols[i] >= (char) ('A' + c)) return NULL;
+        sts_symbols[i] = c - (symbols[i] - 'A') - 1;
+    }
+    return new_word(0, w, c, sts_symbols);
+}
+
 double sts_mindist(const sts_word a, const sts_word b) {
     // TODO: mindist estimation for words of different n, w and c
-    if (a->c != b->c || a->w != b->w || a->n_values != b->n_values) return NAN;
-    size_t w = a->w, n = a->n_values;
+    if (a->c != b->c || a->w != b->w) return NAN;
+    if (a->n_values != b->n_values && (a->n_values != 0 && b->n_values != 0)) return NAN;
+    size_t w = a->w;
+    // sts_word->n_values == 0 means "Default to other word's n" logic
+    size_t n = a->n_values > 0 ? a->n_values : b->n_values;
+    if (n == 0) return NAN;
     unsigned int c = a->c;
     if (c > STS_MAX_CARDINALITY || c < 2 || a->symbols == NULL || b->symbols == NULL) {
         return NAN;
@@ -460,8 +476,8 @@ static char *test_to_sax_normalization() {
     mu_assert(normseq != NULL, "normalize failed");
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w *= 2) {
-            sts_word sax = sts_to_sax(seq, 16, w, c), 
-                     normsax = sts_to_sax(normseq, 16, w, c);
+            sts_word sax = sts_from_double_array(seq, 16, w, c), 
+                     normsax = sts_from_double_array(normseq, 16, w, c);
             mu_assert(sax->symbols != NULL, "sax conversion failed");
             mu_assert(normsax->symbols != NULL, "sax conversion failed");
             mu_assert(memcmp(sax->symbols, normsax->symbols, w) == 0, 
@@ -479,14 +495,20 @@ static char *test_to_sax_sample() {
     // {highest sector, lowest sector, sector right above 0, sector right under 0}
     double nseq[12] = {5, 6, 7, -5, -6, -7, 0.25, 0.17, 0.04, -0.04, -0.17, -0.25};
     unsigned int expected[4] = {0, 7, 3, 4};
-    sts_word sax = sts_to_sax(nseq, 12, 4, 8);
+    sts_word sax = sts_from_double_array(nseq, 12, 4, 8);
+    char sym[] = "HAED";
+    sts_word symsax = sts_from_sax_string(sym, 8);
     mu_assert(sax->symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 4; ++i) {
         mu_assert(sax->symbols[i] == expected[i], 
-                "Error converting sample series: \
-                batch %d turned into %u instead of %u", i, sax->symbols[i], expected[i]);
+                "Error converting sample series: batch %d turned into %u instead of %u", 
+                i, sax->symbols[i], expected[i]);
+        mu_assert(symsax->symbols[i] == expected[i], 
+                "Error converting sample series: batch %d (%c) turned into %u instead of %u", 
+                i, sym[i], symsax->symbols[i], expected[i]);
     }
     sts_free_word(sax);
+    sts_free_word(symsax);
     return NULL;
 }
 
@@ -510,7 +532,7 @@ static char *test_to_sax_stationary() {
     };
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 60; ++w) {
-            sts_word sax = sts_to_sax(sseq, 60 - (60 % w), w, c);
+            sts_word sax = sts_from_double_array(sseq, 60 - (60 % w), w, c);
             mu_assert(sax->symbols != NULL, "sax conversion failed");
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax->symbols[i] == (c / 2) - 1 + (c%2),
@@ -539,10 +561,10 @@ static char *test_sliding_word() {
     {5, 4.2, -3.7, 1.0, 0.1, -2.1, 2.2, -3.3, 4, 0.8, 0.7, -0.2, 4, -3.5, 1.8, -0.4};
     for (unsigned int c = 2; c < STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w*=2) {
-            sts_word word = sts_to_sax(seq, 16, w, c);
+            sts_word word = sts_from_double_array(seq, 16, w, c);
             sts_window window = sts_new_window(16, w, c);
             mu_assert(window != NULL && window->values != NULL, "sts_new_sliding_word failed");
-            mu_assert(word != NULL && word->symbols != NULL, "sts_to_sax failed");
+            mu_assert(word != NULL && word->symbols != NULL, "sts_from_double_array failed");
             sts_word dword;
             TEST_FILL(window, dword, word);
 
@@ -562,7 +584,7 @@ static char *test_nan_and_infinity_in_series() {
     // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
     double nseq[12] = {NAN, NAN, INFINITY, -INFINITY, INFINITY, 1, -INFINITY, -1, NAN, -5, 5, NAN};
     unsigned int expected[6] = {8, 8, 0, 7, 7, 0};
-    sts_word sax = sts_to_sax(nseq, 12, 6, 8);
+    sts_word sax = sts_from_double_array(nseq, 12, 6, 8);
     mu_assert(sax->symbols != NULL, "sax conversion failed");
     for (int i = 0; i < 6; ++i) {
         mu_assert(sax->symbols[i] == expected[i], 

@@ -60,7 +60,16 @@ sts_word sts_append_value(sts_window window, double value);
  * @param w: length of returned code, should be divisor of n
  * @returns NULL on failure or freshly-alocated sts_word
  */
-sts_word sts_to_sax(const double *series, size_t n_values, size_t w, unsigned int c);
+sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, unsigned int c);
+
+/*
+ * Constructs word from symbolic representation, e.g. "AABBC"
+ * @param symbols: symbolic representation in SAX notation
+ * @param c: cardinality of the word
+ * @returns NULL on failure (illegal symbols for cardinality or unprocessable cardinality itself)
+ * or freshly-allocated sts_word with sts_word.w == strlen(symbols)
+ */
+sts_word sts_from_sax_string(const char *symbols, size_t c);
 
 /*
  * Returns the lowerbounding approximation on distance 

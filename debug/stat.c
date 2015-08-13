@@ -167,7 +167,7 @@ struct sax_signal_set fetch_sax_signals(int pid, int evid, int w, int c) {
             for (size_t trid = 0; trid < trials.n_series; ++trid) {
                 // SAX conversion is defined for even partitioning only
                 series[n_series - trid - 1][chid] = 
-                    sts_to_sax(trials.series[trid], EVLEN - (EVLEN % w), w, c);
+                    sts_from_double_array(trials.series[trid], EVLEN - (EVLEN % w), w, c);
                 free(trials.series[trid]);
             }
             free(trials.series);
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
             events = safe_realloc(events, n_events * sizeof(sts_word[1]));
             for (size_t frameid = 0; frameid < event.n_series; ++frameid) {
                 events[n_events - frameid - 1][0] = 
-                    sts_to_sax(event.series[frameid], EVLEN - (EVLEN % w), w, c);
+                    sts_from_double_array(event.series[frameid], EVLEN - (EVLEN % w), w, c);
                 free(event.series[frameid]);
             }
             free(event.series);
@@ -286,7 +286,7 @@ int main(int argc, char **argv) {
             dist_plot.series[sid] = malloc(channel.n_series * sizeof(double));
             for (size_t frameid = 0; frameid < channel.n_series; ++frameid) {
                 sts_word frame[1] = 
-                    {sts_to_sax(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
+                    {sts_from_double_array(channel.series[frameid], EVLEN - (EVLEN % w), w, c)};
                 dist_plot.series[sid][frameid] = 
                     ndim_mindist(1, frame, events, n_events, INT_MAX);
                 free(channel.series[frameid]);
@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
             free(channel.series);
         }
         char name_buf[BUF_SIZE];
-        snprintf(name_buf, BUF_SIZE, "dist_plot_%d_%d_%d_%d_", pid, evid, chid, w);
+        snprintf(name_buf, BUF_SIZE, "dist_plot_old_%d_%d_%d_%d_", pid, evid, chid, w);
         dump_session_data(dist_plot, series_sizes, name_buf);
     } else {
         struct sax_signal_set match_trials = fetch_sax_signals(pid, evid, w, c);
