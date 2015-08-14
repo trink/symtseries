@@ -17,8 +17,6 @@
 
 typedef unsigned char sts_symbol;
 
-struct sts_ring_buffer;
-
 typedef struct sts_word {
     size_t n_values;
     size_t w;
@@ -26,11 +24,9 @@ typedef struct sts_word {
     sts_symbol *symbols;
 } *sts_word;
 
-typedef struct sts_window {
-    struct sts_ring_buffer* values;
-    struct sts_word current_word;
-    double *norm_buffer;
-} *sts_window;
+struct sts_window;
+
+typedef struct sts_window *sts_window;
 
 /*
  * Initializes empty window-like-container
