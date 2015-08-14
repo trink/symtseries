@@ -357,11 +357,7 @@ static sts_word new_word(size_t n, size_t w, short c, sts_symbol *symbols) {
     return new;
 }
 
-sts_word sts_append_value(sts_window window, double value) {
-    if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
-            window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
-        return NULL;
-    rb_push(window->values, value);
+static sts_word update_current_word(sts_window window) {
     if (window->values->cnt < window->current_word.n_values) return NULL;
 
     normalize(window->values->tail, window->current_word.n_values, window->values->head, 
@@ -369,6 +365,26 @@ sts_word sts_append_value(sts_window window, double value) {
     apply_sax_transform(window->current_word.n_values, window->current_word.w, 
             window->current_word.c, window->current_word.symbols, window->norm_buffer);
     return &window->current_word;
+}
+
+sts_word sts_append_value(sts_window window, double value) {
+    if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
+            window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
+        return NULL;
+    rb_push(window->values, value);
+    return update_current_word(window);
+}
+
+sts_word sts_append_array(sts_window window, double *values, size_t n_values) {
+    if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
+            window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
+        return NULL;
+    size_t start = 
+        n_values > window->current_word.n_values ? n_values - window->current_word.n_values : 0;
+    for (size_t i = start; i < n_values; ++i) {
+        rb_push(window->values, values[i]);
+    }
+    return update_current_word(window);
 }
 
 sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, unsigned int c) {
@@ -570,9 +586,16 @@ static char *test_to_sax_stationary() {
     mu_assert(((word) = sts_append_value((window), 0)) != NULL, "ring buffer failed"); \
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
 
+static bool words_equal(sts_word a, sts_word b) {
+    return a->n_values == b->n_values && a->w == b->w && a->c == b->c &&
+        memcmp(a->symbols, b->symbols, a->w * sizeof *a->symbols) == 0;
+}
+
 static char *test_sliding_word() {
     double seq[16] = 
     {5, 4.2, -3.7, 1.0, 0.1, -2.1, 2.2, -3.3, 4, 0.8, 0.7, -0.2, 4, -3.5, 1.8, -0.4};
+    double nseq[17] = 
+    {5, 4.2, -3.7, 1.0, 0.1, -2.1, 2.2, -3.3, 4, 0.8, 0.7, -0.2, 4, -3.5, 1.8, -0.4, 0.0};
     for (unsigned int c = 2; c < STS_MAX_CARDINALITY; ++c) {
         for (size_t w = 1; w <= 16; w*=2) {
             sts_word word = sts_from_double_array(seq, 16, w, c);
@@ -588,11 +611,9 @@ static char *test_sliding_word() {
             mu_assert(sts_reset_window(window), "sts_winodw_reset failed");
             mu_assert(window->values->cnt == 0, "sts_reset_window failed");
             TEST_FILL(window, dword, word);
-            mu_assert(memcmp(cword->symbols, window->current_word.symbols, 
-                        w * sizeof *cword->symbols) == 0, "sts_dup_word failed");
-            mu_assert(cword->n_values == window->current_word.n_values, "sts_dup_word failed");
-            mu_assert(cword->w == window->current_word.w, "sts_dup_word failed");
-            mu_assert(cword->c == window->current_word.c, "sts_dup_word failed");
+            mu_assert(words_equal(cword, dword), "sts_dup_word failed");
+            mu_assert(words_equal(cword, sts_append_array(window, nseq, 17)), 
+                    "sts_append_array failed");
 
             sts_free_word(word);
             sts_free_word(cword);

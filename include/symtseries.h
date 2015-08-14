@@ -41,11 +41,17 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with window->c and window->w
  * @param word: window to be updated
  * @param value: value to be appended
- * @returns pointer to updated window->sts_word if there are enough values 
+ * @returns pointer to updated window->current_word if there are enough values 
  * to construct a word, NULL otherwise. sts_dup_word to store it
- * TODO: lazy SAX symbols update?
  */
 sts_word sts_append_value(sts_window window, double value);
+
+/*
+ * Appends provided array. Only the last word is stored in window->current_word.
+ * @returns pointer to updated window->current_word if there are enough values
+ * to construct a word, NULL otherwise. sts_dup_word to store it
+ */
+sts_word sts_append_array(sts_window window, double *values, size_t n_values);
 
 /*
  * Returns symbolic representation of series which doesn't store initial values
