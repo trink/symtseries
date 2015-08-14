@@ -424,7 +424,7 @@ double sts_mindist(const sts_word a, const sts_word b) {
     return distance;
 }
 
-bool sts_window_reset(sts_window w) {
+bool sts_reset_window(sts_window w) {
     if (w->values == NULL || w->values->buffer == NULL) return false;
     w->values->tail = w->values->head = w->values->buffer;
     w->values->cnt = 0;
@@ -446,6 +446,14 @@ void sts_free_window(sts_window w) {
 void sts_free_word(sts_word a) {
     if (a->symbols != NULL) free(a->symbols);
     free(a);
+}
+
+sts_word sts_dup_word(const sts_word a) {
+    if (a == NULL || a->c < 2 || a->c > STS_MAX_CARDINALITY || a->symbols == NULL)
+        return NULL;
+    sts_symbol *sts_symbols = malloc(a->w * sizeof *sts_symbols);
+    memcpy(sts_symbols, a->symbols, a->w * sizeof *sts_symbols);
+    return new_word(a->n_values, a->w, a->c, sts_symbols);
 }
 
 /* No namespaces in C, so it goes here */
@@ -573,12 +581,21 @@ static char *test_sliding_word() {
             mu_assert(word != NULL && word->symbols != NULL, "sts_from_double_array failed");
             sts_word dword;
             TEST_FILL(window, dword, word);
+            sts_word cword = sts_dup_word(dword);
+            mu_assert(cword->symbols != NULL, "sts_dup_word failed");
+            mu_assert(cword->symbols != dword->symbols, "sts_dup_word should allocate new word");
 
-            mu_assert(sts_window_reset(window), "sts_winodw_reset failed");
-            mu_assert(window->values->cnt == 0, "sts_window_reset failed");
+            mu_assert(sts_reset_window(window), "sts_winodw_reset failed");
+            mu_assert(window->values->cnt == 0, "sts_reset_window failed");
             TEST_FILL(window, dword, word);
+            mu_assert(memcmp(cword->symbols, window->current_word.symbols, 
+                        w * sizeof *cword->symbols) == 0, "sts_dup_word failed");
+            mu_assert(cword->n_values == window->current_word.n_values, "sts_dup_word failed");
+            mu_assert(cword->w == window->current_word.w, "sts_dup_word failed");
+            mu_assert(cword->c == window->current_word.c, "sts_dup_word failed");
 
             sts_free_word(word);
+            sts_free_word(cword);
             sts_free_window(window);
         }
     }

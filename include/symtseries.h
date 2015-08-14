@@ -24,8 +24,6 @@ typedef struct sts_word {
     sts_symbol *symbols;
 } *sts_word;
 
-struct sts_window;
-
 typedef struct sts_window *sts_window;
 
 /*
@@ -38,13 +36,13 @@ typedef struct sts_window *sts_window;
 sts_window sts_new_window(size_t n, size_t w, unsigned int c);
 
 /*
- * Appends new value to the end of given sax-word
+ * Appends new value to the end of the window
  * If window->n_values == window->values->cnt drops the head value
  * Re-computes symbols in accordance with window->c and window->w
  * @param word: window to be updated
  * @param value: value to be appended
  * @returns pointer to updated window->sts_word if there are enough values 
- * to construct a word, NULL otherwise
+ * to construct a word, NULL otherwise. sts_dup_word to store it
  * TODO: lazy SAX symbols update?
  */
 sts_word sts_append_value(sts_window window, double value);
@@ -92,6 +90,12 @@ void sts_free_window(sts_window w);
  * @param w: window to be reset to zero size
  * @returns true in case of successfull reset and false if the window was malformed
  */
-bool sts_window_reset(sts_window w);
+bool sts_reset_window(sts_window w);
+
+/*
+ * @param a: word to be copied
+ * @returns freshly-allocated copy of the provided word or NULL on failure
+ */
+sts_word sts_dup_word(const sts_word a);
 
 #endif
