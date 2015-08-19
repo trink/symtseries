@@ -16,7 +16,10 @@
 #define NCHANNELS 32
 #define NSESSIONS 8
 #define NEVENTS 6
+#define NSUBJECTS 12
 #define EVLEN 150
+/*#define EPS_DIST 18.738396*/
+#define EPS_DIST 26.984440
 
 typedef double dsignal[NCHANNELS];
 typedef sts_word sax_signal[NCHANNELS];
@@ -50,6 +53,8 @@ void *safe_malloc(size_t size) {
     return new_mem;
 }
 
+const char *HEADER = "id,HandStart,FirstDigitTouch,BothStartLoadPhase,LiftOff,Replace,BothReleased";
+
 /* Yep, these 4 could be macroses, 
  * but one does not simply use them to mimic generics in C */
 void push_back_double(double* *series, size_t* size, double value) {
@@ -72,8 +77,9 @@ void push_back_sax_signal(sax_signal* *series, size_t* size, sax_signal value) {
     memcpy((*series)[(*size) - 1], value, NCHANNELS * sizeof(sts_word));
 }
 
-session fetch_session_data(int pid, int sid, bool train) {
+session fetch_session_data(int pid, int sid) {
     char buf[BUF_SIZE];
+    bool train = sid < NSESSIONS;
     char *prefix = train ? "data/train" : "data/test";
     FILE *dataf, *eventsf = NULL;
     snprintf(buf, BUF_SIZE, 
@@ -128,7 +134,7 @@ session fetch_session_data(int pid, int sid, bool train) {
 session *fetch_train_data(int pid) { 
     session *train = malloc(NSESSIONS * sizeof *train);
     for (size_t sid = 0; sid < NSESSIONS; ++sid) {
-        train[sid] = fetch_session_data(pid, sid, true);
+        train[sid] = fetch_session_data(pid, sid);
         if (train[sid].values == NULL) {
             printf("I/O problems occured, exiting\n");
             exit(-1);
@@ -142,6 +148,7 @@ session *fetch_train_data(int pid) {
  * If evid is negative than each subrange not corresponding to event #evid 
  * of length EVLEN will be returned
  * If evid is zero, than all session subsequences of length EVLEN will be returned
+ * If data is testing data then generate words with tumbling window
  */
 struct sax_signal_set 
 session_to_event_words(session *data, size_t n_sessions, short evid, int w, int c) {
@@ -239,32 +246,134 @@ double find_min(double *arr, size_t size) {
     return min;
 }
 
+int double_cmp(const void* elem1, const void* elem2) {
+    double val1 = *((double *) elem1), val2 = *((double *) elem2);
+    if (val1 < val2) return -1;
+    else if (val1 > val2) return 1;
+    else return 0;
+}
+
+void free_set(sax_signal_set s) {
+    for (size_t i = 0; i < s.n_words; ++i) {
+        for (size_t j = 0; j < NCHANNELS; ++j) {
+            sts_free_word(s.words[i][j]);
+        }
+    }
+    free(s.words);
+}
+
+void rb_push(struct sts_ring_buffer *rb, double value);
+
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("No option specified, exiting.\n(Should be one of: plot, dist)\n");
+        printf("No option specified, exiting.\n(Should be one of: plot, dist, classify)\n");
         exit(-1);
     }
+    char buf[BUF_SIZE];
     if (argc < 4) {
-        printf("Provide me with subject id and event number\n");
-        exit(-1);
-    }
-    int pid = atoi(argv[2]), evid = atoi(argv[3]);
-    // The rest of the program assumes 1-based event ids
-    evid++;
-    if (argc < 6) {
         printf("Provide me with w and c\n");
         exit(-1);
     }
-    int w = atoi(argv[4]);
-    int c = atoi(argv[5]);
+    int w = atoi(argv[2]);
+    int c = atoi(argv[3]);
 
+    if (strcmp("classify", argv[1]) == 0) {
+        // Actual classification given EPS_DIST
+        sax_signal_set train[NSUBJECTS][NEVENTS];
+        // Learn on EVLEN-length events
+        for (size_t pid = 0; pid < NSUBJECTS; ++pid) {
+            session *data = fetch_train_data(pid);
+            for (size_t evid = 1; evid <= NEVENTS; ++evid) {
+                train[pid][evid - 1] = session_to_event_words(data, NSESSIONS, evid, w, c);
+            }
+            for (size_t sid = 0; sid < NSESSIONS; ++sid) {
+                free(data[sid].values);
+                free(data[sid].event_markers);
+            }
+            free(data);
+        }
+        snprintf(buf, BUF_SIZE, "data/submission_%d_%d", w, c);
+        FILE *out = fopen(buf, "w");
+        if (out == NULL) {
+            printf("IO Error\n");
+            exit(-1);
+        }
+        fprintf(out, "%s\n", HEADER);
+        struct sts_ring_buffer evprob[NEVENTS];
+        for (size_t i = 0; i < NEVENTS; ++i) {
+            evprob[i].buffer = malloc(EVLEN * sizeof *evprob[i].buffer);
+            evprob[i].buffer_end = evprob[i].buffer + EVLEN;
+            evprob[i].head = evprob[i].tail = evprob[i].buffer;
+            evprob[i].cnt = 0;
+        }
+        // Slide over the session files, 
+        // probability for each point == average of window probabilities covering it
+        // TODO: try out max instead of average
+        for (size_t pid = 0; pid < NSUBJECTS; ++pid) {
+            for (size_t sid = NSESSIONS; sid < NSESSIONS + 2; ++sid) {
+                session data = fetch_session_data(pid, sid);
+                sax_signal_set test = session_to_event_words(&data, 1, 0, w, c);
+                for (size_t i = 0; i < EVLEN; ++i) {
+                    for (size_t j = 0; j < NEVENTS; ++j) rb_push(&evprob[j], 0.0);
+                }
+                for (size_t windowid = 0; windowid < test.n_words; ++windowid) {
+                    double proba[NEVENTS];
+                    for (size_t evid = 0; evid < NEVENTS; ++evid) {
+                        double dist = 
+                            ndim_mindist(NCHANNELS, test.words[windowid], train[pid][evid].words,
+                                    train[pid][evid].n_words, INT_MAX);
+                        double prob = 0;
+                        if (dist < EPS_DIST) {
+                            prob = 1 - (dist / EPS_DIST);
+                        }
+                        for (double *buf = evprob[evid].tail; buf != evprob[evid].head; ++buf) {
+                            if (buf == evprob[evid].buffer_end) buf = evprob[evid].buffer;
+                            if (buf == evprob[evid].head) break;
+                            *buf += prob;
+                        }
+                        // Average the probabiility for the current point by the number of windows
+                        // that passed over it
+                        proba[evid] = 
+                            *evprob[evid].tail / (windowid >= EVLEN ? EVLEN : windowid + 1);
+                        rb_push(&evprob[evid], prob);
+                    }
+                    fprintf(out, "subj%zu_series%zu_%zu,", pid + 1, sid + 1, windowid);
+                    for (size_t evid = 0; evid < NEVENTS; ++evid) {
+                        fprintf(out, "%lf%s", proba[evid], evid < NEVENTS - 1 ? "," : "\n");
+                    }
+                }
+                // Write out probabilities for the last EVLEN symbols for each session
+                for (size_t frameid = test.n_words; frameid < data.n_values; ++frameid) {
+                        fprintf(out, "subj%zu_series%zu_%zu,", pid + 1, sid + 1, frameid);
+                        for (size_t evid = 0; evid < NEVENTS; ++evid) {
+                            fprintf(out, "%lf%s", 
+                                    *evprob[evid].tail / EVLEN, evid < NEVENTS - 1 ? "," : "\n");
+                            if (++evprob[evid].tail == evprob[evid].buffer_end) 
+                                evprob[evid].tail = evprob[evid].buffer;
+                        }
+                }
+                free_set(test);
+                free(data.values);
+                free(data.event_markers);
+            }
+        }
+        fclose(out);
+        return 0;
+    }
+    if (argc < 6) {
+        printf("Provide me with subject id and event number\n");
+        exit(-1);
+    }
+    int pid = atoi(argv[4]), evid = atoi(argv[5]);
+    // The rest of the program assumes 1-based event ids
+    evid++;
     if (strcmp("plot", argv[1]) == 0) {
+        // Produce data for midnist channel-wise plot
         if (argc < 7) {
             printf("Provide me with channel number\n");
             exit(-1);
         }
         int chid = atoi(argv[6]);
-        char buf[BUF_SIZE];
 
         session *data = fetch_train_data(pid);
         sax_signal_set ndim_events = session_to_event_words(data, NSESSIONS, evid, w, c);
@@ -299,7 +408,8 @@ int main(int argc, char **argv) {
             }
             fclose(out);
         }
-    } else {
+    } else if (strcmp("dist", argv[1]) == 0) {
+        // Quick EPS_DIST estimation
         session *train = fetch_train_data(pid);
         struct sax_signal_set match_trials = 
             session_to_event_words(train, NSESSIONS, evid, w, c);
@@ -313,5 +423,21 @@ int main(int argc, char **argv) {
         double min_nonmatch_mindist = find_min(nonmatch_mindists, nonmatch_trials.n_words);
         printf("\n-- Overall: Maximum matching mindist == %lf VS \
                 Minimum nonmatching mindist == %lf --\n", max_match_mindist, min_nonmatch_mindist);
-    }
+        qsort(match_mindists, match_trials.n_words, sizeof *match_mindists, double_cmp);
+        for (size_t i = 0; i < match_trials.n_words; ++i) {
+            size_t count_misclassified = 0;
+            for (size_t j = 0; j < nonmatch_trials.n_words; ++j) {
+                if (nonmatch_mindists[j] <= match_mindists[i]) ++count_misclassified;
+            }
+            snprintf(buf, BUF_SIZE, 
+                    "plot/precision_%d_%d", pid, evid);
+            FILE *out = fopen(buf, "w");
+            if (out == NULL) {
+                printf("IO Error\n");
+                exit(-1);
+            }
+
+            printf("%zu: %lf\n", i + 1, ((double) count_misclassified) / nonmatch_trials.n_words);
+        }
+    } 
 }

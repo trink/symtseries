@@ -209,12 +209,6 @@ static const double dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY][STS
     }
 };
 
-struct sts_ring_buffer {
-    size_t cnt;
-    double *buffer, *buffer_end;
-    double *head, *tail;
-};
-
 static sts_symbol get_symbol(double value, unsigned int c) {
     if (isnan(value)) return c;
     for (unsigned int i = 0; i < c; ++i) {
@@ -302,7 +296,7 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c) {
     return new_window(n, w, c, values);
 }
 
-static void rb_push(struct sts_ring_buffer* rb, double value)
+void rb_push(struct sts_ring_buffer* rb, double value)
 {
     *rb->head = value;
     ++rb->head;

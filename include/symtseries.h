@@ -17,7 +17,12 @@
 
 typedef unsigned char sts_symbol;
 
-struct sts_ring_buffer;
+struct sts_ring_buffer {
+    size_t cnt;
+    double *buffer, *buffer_end;
+    double *head, *tail;
+};
+
 
 typedef struct sts_word {
     size_t n_values;
