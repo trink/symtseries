@@ -74,6 +74,8 @@ sts_word sts_from_sax_string(const char *symbols, size_t c);
 /*
  * Returns the lowerbounding approximation on distance 
  * between sax-represented series a and b.
+ * One of the words can have sts_word->n_values == 0 and 
+ * method will use other's word n_values for mindist estimation.
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */

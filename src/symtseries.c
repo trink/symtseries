@@ -240,7 +240,7 @@ static void normalize(const double *series_begin, size_t n_values, const double 
     size_t i = 0;
     const double *value = series_begin;
 
-    // Copy elements from buffer into *series
+    // Copy elements from buffer into *out
     while (value != series_end) {
         out[i++] = *value;
         if (++value == buffer_break) value = buffer_start;
