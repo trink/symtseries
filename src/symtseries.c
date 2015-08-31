@@ -367,7 +367,7 @@ static sts_word update_current_word(sts_window window) {
     return &window->current_word;
 }
 
-sts_word sts_append_value(sts_window window, double value) {
+const struct sts_word* sts_append_value(sts_window window, double value) {
     if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
             window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
         return NULL;
@@ -375,7 +375,7 @@ sts_word sts_append_value(sts_window window, double value) {
     return update_current_word(window);
 }
 
-sts_word sts_append_array(sts_window window, double *values, size_t n_values) {
+const struct sts_word* sts_append_array(sts_window window, const double *values, size_t n_values) {
     if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
             window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
         return NULL;
@@ -464,7 +464,7 @@ void sts_free_word(sts_word a) {
     free(a);
 }
 
-sts_word sts_dup_word(const sts_word a) {
+sts_word sts_dup_word(const struct sts_word* a) {
     if (a == NULL || a->c < 2 || a->c > STS_MAX_CARDINALITY || a->symbols == NULL)
         return NULL;
     sts_symbol *sts_symbols = malloc(a->w * sizeof *sts_symbols);
@@ -586,7 +586,7 @@ static char *test_to_sax_stationary() {
     mu_assert(((word) = sts_append_value((window), 0)) != NULL, "ring buffer failed"); \
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
 
-static bool words_equal(sts_word a, sts_word b) {
+static bool words_equal(const struct sts_word* a, const struct sts_word* b) {
     return a->n_values == b->n_values && a->w == b->w && a->c == b->c &&
         memcmp(a->symbols, b->symbols, a->w * sizeof *a->symbols) == 0;
 }
@@ -602,7 +602,7 @@ static char *test_sliding_word() {
             sts_window window = sts_new_window(16, w, c);
             mu_assert(window != NULL && window->values != NULL, "sts_new_sliding_word failed");
             mu_assert(word != NULL && word->symbols != NULL, "sts_from_double_array failed");
-            sts_word dword;
+            const struct sts_word* dword;
             TEST_FILL(window, dword, word);
             sts_word cword = sts_dup_word(dword);
             mu_assert(cword->symbols != NULL, "sts_dup_word failed");
