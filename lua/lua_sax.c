@@ -140,7 +140,7 @@ static int sax_from_double_array(lua_State* lua)
   for (int i = 1; i <= size; ++i) {
     lua_pushnumber(lua, i);
     lua_gettable(lua, 1);
-    buf[i] = luaL_checknumber(lua, -1);
+    buf[i-1] = luaL_checknumber(lua, -1);
     lua_pop(lua, 1);
   }
 
