@@ -38,4 +38,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_subdirectory(src)
 add_subdirectory(debug)
-add_subdirectory(lua)
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+find_package(luasandbox REQUIRED)
+
+if(LUASANDBOX_FOUND)
+    add_subdirectory(lua)
+ENDIF(LUASANDBOX_FOUND)
