@@ -413,7 +413,7 @@ sts_word sts_from_sax_string(const char *symbols, size_t c) {
     return new_word(0, w, c, sts_symbols);
 }
 
-double sts_mindist(const sts_word a, const sts_word b) {
+double sts_mindist(const struct sts_word* a, const struct sts_word* b) {
     // TODO: mindist estimation for words of different n, w and c
     if (a->c != b->c || a->w != b->w) return NAN;
     if (a->n_values != b->n_values && (a->n_values != 0 && b->n_values != 0)) return NAN;

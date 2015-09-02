@@ -79,7 +79,7 @@ sts_word sts_from_sax_string(const char *symbols, size_t c);
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */
-double sts_mindist(const sts_word a, const sts_word b);
+double sts_mindist(const struct sts_word* a, const struct sts_word* b);
 
 /*
  * Frees allocated memory for sax representation
