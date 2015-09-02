@@ -37,10 +37,10 @@ static void check_nwc(lua_State* lua, int n, int w, int c, int offset)
 }
 
 static sts_word check_sax_word(lua_State* lua, int ind) {
-  sts_word* ud = luaL_checkudata(lua, ind, mozsvc_sax_word);
-  luaL_argcheck(lua, ud != NULL, 1, "invalid userdata type");
+  sts_word *ud = luaL_checkudata(lua, ind, mozsvc_sax_word);
+  luaL_argcheck(lua, ud != NULL, ind, "invalid userdata type");
   sts_word a = *ud;
-  luaL_argcheck(lua, a != NULL, 1, "invalid sax_word address");
+  luaL_argcheck(lua, a != NULL, ind, "invalid sax_word address");
   check_nwc(lua, a->n_values, a->w, a->c, ind);
   return a;
 }
@@ -101,6 +101,24 @@ static int sax_mindist(lua_State* lua)
   } else {
     lua_pushnumber(lua, d);
   }
+  return 1;
+}
+
+static int sax_word_to_string(lua_State* lua)
+{
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
+  sts_word a = check_sax_word(lua, 1);
+  size_t w = a->w;
+  size_t c = a->c;
+  char *str = malloc(w + 1 * sizeof *str);
+  str[w] = '\0';
+  for (size_t i = 0; i < w; ++i) {
+    unsigned char dig = a->symbols[i];
+    luaL_argcheck(lua, dig <= c, 1, "symbol out of range encountered");
+    str[i] = c - a->symbols[i] - 1 + 'A';
+  }
+  lua_pushstring(lua, str);
+  free(str);
   return 1;
 }
 
@@ -166,6 +184,7 @@ static const struct luaL_reg saxlib_f[] =
 static const struct luaL_reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
+  , { "to_string", sax_word_to_string }
   , { NULL, NULL }
 };
 
