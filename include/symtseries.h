@@ -44,14 +44,14 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c);
  * @returns pointer to updated window->current_word if there are enough values 
  * to construct a word, NULL otherwise. sts_dup_word to store it
  */
-sts_word sts_append_value(sts_window window, double value);
+const struct sts_word* sts_append_value(sts_window window, double value);
 
 /*
  * Appends provided array. Only the last word is stored in window->current_word.
  * @returns pointer to updated window->current_word if there are enough values
  * to construct a word, NULL otherwise. sts_dup_word to store it
  */
-sts_word sts_append_array(sts_window window, double *values, size_t n_values);
+const struct sts_word* sts_append_array(sts_window window, const double *values, size_t n_values);
 
 /*
  * Returns symbolic representation of series which doesn't store initial values
@@ -74,10 +74,12 @@ sts_word sts_from_sax_string(const char *symbols, size_t c);
 /*
  * Returns the lowerbounding approximation on distance 
  * between sax-represented series a and b.
+ * One of the words can have sts_word->n_values == 0 and 
+ * method will use other's word n_values for mindist estimation.
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
  */
-double sts_mindist(const sts_word a, const sts_word b);
+double sts_mindist(const struct sts_word* a, const struct sts_word* b);
 
 /*
  * Frees allocated memory for sax representation
@@ -102,6 +104,6 @@ bool sts_reset_window(sts_window w);
  * @param a: word to be copied
  * @returns freshly-allocated copy of the provided word or NULL on failure
  */
-sts_word sts_dup_word(const sts_word a);
+sts_word sts_dup_word(const struct sts_word* a);
 
 #endif
