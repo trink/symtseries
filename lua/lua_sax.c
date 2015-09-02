@@ -119,7 +119,7 @@ static int sax_from_double_array(lua_State* lua)
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
 
-  for (int i = 0; i < size; ++i) {
+  for (int i = 1; i <= size; ++i) {
     lua_pushnumber(lua, i);
     lua_gettable(lua, 1);
     buf[i] = luaL_checknumber(lua, -1);
