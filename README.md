@@ -1,4 +1,4 @@
-#Symbolic timeseries representations library
+#Symbolic timeseries representations
 Means of representing your time series data in a convenient way for your task.
 
 ##Overview
@@ -100,7 +100,7 @@ for i=1,4 do print((b = window:add(values[i])) != nil) end
 
 print(sax.mindist(a, b))
 
--- prints 0 0 0 1 0.0
+-- prints false false false true 0.0
 ```
 
 *Arguments*  
@@ -121,7 +121,7 @@ for i=1,4 do window:add(values[i]) end
 window.clear()
 print(window:add(1.3) == nil)
 
--- prints 1
+-- prints true
 ```
 
 *Return*  
