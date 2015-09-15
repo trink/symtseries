@@ -40,6 +40,7 @@ static sts_word check_sax_word(lua_State* lua, int ind) {
   luaL_argcheck(lua, ud != NULL, ind, "invalid userdata type");
   sts_word a = *ud;
   luaL_argcheck(lua, a != NULL, ind, "invalid sax_word address");
+  luaL_argcheck(lua, a->symbols != NULL, ind, "invalid sax_word symbols");
   check_nwc(lua, a->n_values, a->w, a->c, ind);
   return a;
 }
@@ -121,6 +122,26 @@ static int sax_word_to_string(lua_State* lua)
   return 1;
 }
 
+static int sax_word_equal(lua_State* lua)
+{
+  luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
+  sts_word a = check_sax_word(lua, 1);
+  sts_word b = check_sax_word(lua, 2);
+  if (a->w != b->w || a->c != b->c) {
+    lua_pushboolean(lua, 0);
+    return 1;
+  }
+  size_t w = a->w;
+  for (size_t i = 0; i < w; ++i) {
+    if (a->symbols[i] != b->symbols[i]) {
+      lua_pushboolean(lua, 0);
+      return 1;
+    }
+  }
+  lua_pushboolean(lua, 1);
+  return 1;
+}
+
 static int sax_word_copy(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
@@ -193,7 +214,8 @@ static const struct luaL_reg saxlib_f[] =
 static const struct luaL_reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
-  , { "to_string", sax_word_to_string }
+  , { "__tostring", sax_word_to_string }
+  , { "__eq", sax_word_equal }
   , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
