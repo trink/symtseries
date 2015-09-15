@@ -1,4 +1,4 @@
-#Symbolic timeseries representations
+#Symbolic time series representations
 Means of representing your time series data in a convenient way for your task.
 
 ##Overview
