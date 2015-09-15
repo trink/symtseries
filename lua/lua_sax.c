@@ -121,6 +121,15 @@ static int sax_word_to_string(lua_State* lua)
   return 1;
 }
 
+static int sax_word_copy(lua_State* lua)
+{
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
+  sts_word a = check_sax_word(lua, 1);
+  sts_word new_a = sts_dup_word(a);
+  push_word(lua, new_a);
+  return 1;
+}
+
 static int sax_from_double_array(lua_State* lua) 
 {
   int argc = lua_gettop(lua);
@@ -165,6 +174,7 @@ static int sax_gc_window(lua_State* lua)
   return 0;
 }
 
+// TODO: doesn't it screw up when a word comes from window?
 static int sax_gc_word(lua_State* lua)
 {
   sts_word a = check_sax_word(lua, 1);
@@ -184,6 +194,7 @@ static const struct luaL_reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
   , { "to_string", sax_word_to_string }
+  , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
 
