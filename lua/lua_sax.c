@@ -6,8 +6,8 @@
 
 /** @brief Lua sax functions @file */
 
-#include <luasandbox/lua.h>
-#include <luasandbox/lauxlib.h>
+#include <lua.h>
+#include <lauxlib.h>
 #include <math.h>
 #include <symtseries.h>
 

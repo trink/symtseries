@@ -29,8 +29,7 @@ if(CMAKE_HOST_UNIX)
 endif()
 
 set(CPACK_PACKAGE_VENDOR        "Vlad Sterzhanov aka Quadrocube")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
-include(CPack)
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
 
 include(CTest)
 
@@ -40,8 +39,8 @@ add_subdirectory(src)
 add_subdirectory(debug)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-find_package(luasandbox REQUIRED)
+find_package(Lua REQUIRED)
 
-if(LUASANDBOX_FOUND)
+if(LUA_FOUND)
     add_subdirectory(lua)
-ENDIF(LUASANDBOX_FOUND)
+ENDIF(LUA_FOUND)
