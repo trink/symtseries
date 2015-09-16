@@ -203,7 +203,7 @@ static int sax_gc_word(lua_State* lua)
   return 0;
 }
 
-static const struct luaL_reg saxlib_f[] =
+static const struct luaL_Reg saxlib_f[] =
 {
   { "new_window", sax_new_window }
   , { "new_word", sax_from_double_array }
@@ -211,7 +211,7 @@ static const struct luaL_reg saxlib_f[] =
   , { NULL, NULL }
 };
 
-static const struct luaL_reg saxlib_word[] =
+static const struct luaL_Reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
   , { "__tostring", sax_word_to_string }
@@ -220,7 +220,7 @@ static const struct luaL_reg saxlib_word[] =
   , { NULL, NULL }
 };
 
-static const struct luaL_reg saxlib_win[] =
+static const struct luaL_Reg saxlib_win[] =
 {
   { "add", sax_add }
   , { "clear", sax_clear }

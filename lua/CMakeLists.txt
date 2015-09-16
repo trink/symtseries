@@ -5,6 +5,7 @@
 # Build lua wrap library
 
 project (sax C)
+add_definitions( -DLUA_COMPAT_MODULE )
 include (${CMAKE_MODULE_PATH}/dist.cmake)
 include(lua)
 
