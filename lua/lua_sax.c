@@ -25,9 +25,10 @@ static sts_window check_sax_window(lua_State* lua, int min_args)
   return *ud;
 }
 
-static void check_nwc(lua_State* lua, int n, int w, int c, int offset) 
+static void check_nwc(lua_State* lua, int n, int w, int c, int offset, int allow_n_zero) 
 {
-  luaL_argcheck(lua, n > 1 && n <= 4096, offset, "n is out of range");
+  luaL_argcheck(lua, (allow_n_zero ? n >= 0 : n > 1) && n <= 4096, 
+      offset, "n is out of range");
   luaL_argcheck(lua, w > 1 && w <= 2048, offset, "w is out of range");
   luaL_argcheck(lua, n % w == 0, offset, 
                 "n must be evenly divisible by w");
@@ -35,13 +36,13 @@ static void check_nwc(lua_State* lua, int n, int w, int c, int offset)
                 "cardinality is out of range");
 }
 
-static sts_word check_sax_word(lua_State* lua, int ind) {
+static sts_word check_sax_word(lua_State* lua, int ind, int allow_n_zero) {
   sts_word *ud = luaL_checkudata(lua, ind, mozsvc_sax_word);
   luaL_argcheck(lua, ud != NULL, ind, "invalid userdata type");
   sts_word a = *ud;
   luaL_argcheck(lua, a != NULL, ind, "invalid sax_word address");
   luaL_argcheck(lua, a->symbols != NULL, ind, "invalid sax_word symbols");
-  check_nwc(lua, a->n_values, a->w, a->c, ind);
+  check_nwc(lua, a->n_values, a->w, a->c, ind, allow_n_zero);
   return a;
 }
 
@@ -52,7 +53,7 @@ static int sax_new_window(lua_State* lua)
   int n = luaL_checkint(lua, 1);
   int w = luaL_checkint(lua, 2);
   int c = luaL_checkint(lua, 3);
-  check_nwc(lua, n, w, c, 1);
+  check_nwc(lua, n, w, c, 1, 0);
 
   sts_window win = sts_new_window(n, w, c);
   if (!win) luaL_error(lua, "memory allocation failed");
@@ -92,8 +93,8 @@ static int sax_add(lua_State* lua)
 static int sax_mindist(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
-  sts_word b = check_sax_word(lua, 2);
+  sts_word a = check_sax_word(lua, 1, 1);
+  sts_word b = check_sax_word(lua, 2, 1);
 
   double d = sts_mindist(a, b);
   if (isnan(d)) {
@@ -107,7 +108,7 @@ static int sax_mindist(lua_State* lua)
 static int sax_word_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
+  sts_word a = check_sax_word(lua, 1, 1);
   size_t w = a->w;
   size_t c = a->c;
   char *str = malloc(w + 1 * sizeof *str);
@@ -125,8 +126,8 @@ static int sax_word_to_string(lua_State* lua)
 static int sax_word_equal(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
-  sts_word b = check_sax_word(lua, 2);
+  sts_word a = check_sax_word(lua, 1, 1);
+  sts_word b = check_sax_word(lua, 2, 1);
   if (a->w != b->w || a->c != b->c) {
     lua_pushboolean(lua, 0);
     return 1;
@@ -145,7 +146,7 @@ static int sax_word_equal(lua_State* lua)
 static int sax_word_copy(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
+  sts_word a = check_sax_word(lua, 1, 1);
   sts_word new_a = sts_dup_word(a);
   push_word(lua, new_a);
   return 1;
@@ -153,15 +154,13 @@ static int sax_word_copy(lua_State* lua)
 
 static int sax_from_double_array(lua_State* lua) 
 {
-  int argc = lua_gettop(lua);
-  luaL_argcheck(lua, argc == 4, 0, "incorrect number of arguments");
-  int size = luaL_checkint(lua, 2);
-  int w = luaL_checkint(lua, 3);
-  int c = luaL_checkint(lua, 4);
-  check_nwc(lua, size, w, c, 2);
-
+  int w = luaL_checkint(lua, 2);
+  int c = luaL_checkint(lua, 3);
   if (!lua_istable(lua, 1)) 
     luaL_argerror(lua, 1, "array-like table expected");
+
+  int size = lua_objlen(lua, 1);
+  check_nwc(lua, size, w, c, 2, 0);
 
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
@@ -181,6 +180,30 @@ static int sax_from_double_array(lua_State* lua)
   return 1;
 }
 
+static int sax_from_string(lua_State* lua) 
+{
+  const char *s = luaL_checkstring(lua, 1);
+  int c = luaL_checkint(lua, 2);
+  sts_word a = sts_from_sax_string(s, c);
+  if (!a) luaL_argerror(lua, 1, 
+        "illegal symbols for given cardinality or bad cardinality itself");
+  push_word(lua, a);
+  return 1;
+}
+
+static int sax_new_word(lua_State* lua) 
+{
+  int argc = lua_gettop(lua);
+  switch (argc) {
+    case 2:
+      return sax_from_string(lua);
+    case 3:
+      return sax_from_double_array(lua);
+    default:
+      return luaL_argerror(lua, 0, "incorrect number of arguments");
+  }
+}
+
 static int sax_clear(lua_State* lua)
 {
   sts_window win = check_sax_window(lua, 1);
@@ -195,10 +218,9 @@ static int sax_gc_window(lua_State* lua)
   return 0;
 }
 
-// TODO: doesn't it screw up when a word comes from window?
 static int sax_gc_word(lua_State* lua)
 {
-  sts_word a = check_sax_word(lua, 1);
+  sts_word a = check_sax_word(lua, 1, 1);
   sts_free_word(a);
   return 0;
 }
@@ -206,7 +228,7 @@ static int sax_gc_word(lua_State* lua)
 static const struct luaL_Reg saxlib_f[] =
 {
   { "new_window", sax_new_window }
-  , { "new_word", sax_from_double_array }
+  , { "new_word", sax_new_word }
   , { "mindist", sax_mindist }
   , { NULL, NULL }
 };

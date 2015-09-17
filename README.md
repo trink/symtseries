@@ -55,17 +55,24 @@ globally registered and returned by the require function.
 
 - mozsvc.sax.window userdata object.
 
-#### new_word(v, n, w, c)
+#### new_word[(v, n, w, c), (s, c)]
 ```lua
-local word = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 6, 2, 8)
+local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
+local b = sax.new_word("FC", 8)
+print(a == b)
+-- prints true
 ```
 
 *Arguments*  
 
 - v (table-array) Series to be represented in SAX notation
-- n (unsigned) The number of elements in v (must be > 1)
-- w (unsigned) The number of frames to split the series into (must be > 1 and a divisor of n)
-- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)
+- w (unsigned) The number of frames to split the series into (must be > 1 and a divisor of #v)
+- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
+
+*OR*  
+
+- s (string) SAX-notation string denoting a word
+- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
 
 *Return*  
 
@@ -73,8 +80,8 @@ local word = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 6, 2, 8)
 
 #### mindist(a, b)
 ```lua
-local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 6, 2, 8)
-local b = sax.new_word({-9, -8, -7, -5, -5, 7.2}, 6, 2, 8)
+local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
+local b = sax.new_word({-9, -8, -7, -5, -5, 7.2}, 2, 8)
 local d = sax.mindist(a, b)
 -- d == 1.5676734353812
 ```
@@ -93,7 +100,7 @@ local d = sax.mindist(a, b)
 ```lua
 local window = sax.new_window(4, 2, 4)
 local values = {1, 2, 3, 10.1}
-local a = sax.new_word(values, 4, 2, 4)
+local a = sax.new_word(values, 2, 4)
 local b
 
 for i=1,4 do print((b = window:add(values[i])) != nil) end
@@ -132,7 +139,7 @@ print(window:add(1.3) == nil)
 
 #### __tostring
 ```lua
-local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 6, 2, 8)
+local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 print(a)
 -- prints FC
 ```
@@ -149,7 +156,7 @@ local a, b
 
 for i=1,4 do a = window:add(values[i]) end
 
-b = sax.new_word(values, 4, 2, 4)
+b = sax.new_word(values, 2, 4)
 
 print(a == b)
 -- prints true
