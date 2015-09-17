@@ -106,9 +106,9 @@ static int sax_add(lua_State* lua)
   double d = luaL_checknumber(lua, 2);
   const struct sts_word* a = sts_append_value(win, d);
   if (!a) {
-    lua_pushnil(lua);
+    lua_pushboolean(lua, 0);
   } else {
-    push_word(lua, a);
+    lua_pushboolean(lua, 1);
   }
   return 1;
 }
@@ -172,6 +172,18 @@ static int sax_word_copy(lua_State* lua)
   sts_word a = check_sax_word(lua, 1);
   sts_word new_a = sts_dup_word(a);
   push_word(lua, new_a);
+  return 1;
+}
+
+static int sax_window_get_word(lua_State *lua)
+{
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
+  sts_window window = check_sax_window(lua, 1);
+  if (window->values->cnt < window->current_word.n_values) {
+    lua_pushnil(lua);
+  } else {
+    push_word(lua, sts_dup_word(&window->current_word));
+  }
   return 1;
 }
 
@@ -272,6 +284,7 @@ static const struct luaL_Reg saxlib_win[] =
   { "add", sax_add }
   , { "clear", sax_clear }
   , { "__gc", sax_gc_window }
+  , { "get_word", sax_window_get_word }
   , { NULL, NULL }
 };
 

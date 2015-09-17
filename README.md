@@ -83,7 +83,7 @@ print(a == b)
 local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local values = {-9, -8, -7, -5, -5, 7.2}
 local b = sax.new_window(#values, 2, 8)
-for i=1,#values do b(values[i]) end
+for i=1,#values do b:add(values[i]) end
 local d = sax.mindist(a, b)
 -- d == 1.5676734353812
 ```
@@ -104,11 +104,10 @@ local d = sax.mindist(a, b)
 local window = sax.new_window(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 local a = sax.new_word(values, 2, 4)
-local b
 
-for i=1,4 do print((b = window:add(values[i])) != nil) end
+for i=1,4 do print(window:add(values[i])) end
 
-print(sax.mindist(a, b))
+print(sax.mindist(a, window:get_word()))
 
 -- prints false false false true 0.0
 ```
@@ -119,7 +118,13 @@ print(sax.mindist(a, b))
 
 *Return*  
 
-- nil if there's less than n values inside window after appending val or mozsvc.sax.word representation of series in window otherwise. Note that the returned word is static to window, use word.copy if you want to store it.
+- false if there's less than n values inside window after appending val or true otherwise. 
+
+#### get_word()
+
+*Return*  
+
+- returns copy of current word or nil if there isn't yet enough data to construct the whole world
 
 #### clear()
 ```lua
@@ -128,10 +133,11 @@ local values = {1, 2, 3, 10.1}
 
 for i=1,4 do window:add(values[i]) end
 
-window.clear()
-print(window:add(1.3) == nil)
+window:clear()
+print(window:add(1.3))
+print(window:get_word() == nil)
 
--- prints true
+-- prints false true
 ```
 
 *Return*  
@@ -144,11 +150,11 @@ local window = sax.new_window(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 local a, b
 
-for i=1,4 do a = window:add(values[i]) end
+for i=1,4 do window:add(values[i]) end
 
 b = sax.new_word(values, 2, 4)
 
-print(a == b)
+print(window:get_word() == b)
 print(window == b)
 -- prints true true
 ```
@@ -174,22 +180,7 @@ print(a)
 See window.__eq
 
 #### copy()
-```lua
-local window = sax.new_window(4, 2, 4)
-local values = {1, 2, 3, 10.1}
-local a, b
-
-for i=1,4 do a = window:add(values[i]) end
-
-b = a:copy()
-window:add(-12)
-
-print(a:to_string())
-print(b:to_string())
-
--- prints CB AD
-```
 
 *Return*  
 
-- mozsvc.sax.word
+- copy of mozsvc.sax.word
