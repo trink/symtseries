@@ -15,16 +15,6 @@ static const char* mozsvc_sax_window = "mozsvc.sax.window";
 static const char* mozsvc_sax_word = "mozsvc.sax.word";
 static const char* mozsvc_sax_table = "sax";
 
-static sts_window check_sax_window(lua_State* lua, int min_args)
-{
-  sts_window* ud = luaL_checkudata(lua, 1, mozsvc_sax_window);
-  luaL_argcheck(lua, ud != NULL, 1, "invalid userdata type");
-  luaL_argcheck(lua, *ud != NULL, 1, "invalid sax_window address");
-  luaL_argcheck(lua, min_args <= lua_gettop(lua), 0,
-                "incorrect number of arguments");
-  return *ud;
-}
-
 static void check_nwc(lua_State* lua, int n, int w, int c, int offset, int allow_n_zero) 
 {
   luaL_argcheck(lua, (allow_n_zero ? n >= 0 : n > 1) && n <= 4096, 
@@ -36,20 +26,52 @@ static void check_nwc(lua_State* lua, int n, int w, int c, int offset, int allow
                 "cardinality is out of range");
 }
 
-static sts_word check_sax_word(lua_State* lua, int ind, int allow_n_zero) {
+static sts_word check_sax_word(lua_State* lua, int ind) {
+  /* word was previously successfully constructed -> No need to check for NULLs */
   sts_word *ud = luaL_checkudata(lua, ind, mozsvc_sax_word);
+  return *ud;
+}
+
+static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
+{
+  void *ud = lua_touserdata(lua, ind);
+  if (ud != NULL) {  
+    if (lua_getmetatable(lua, ind)) { 
+      lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_word);
+      if (lua_rawequal(lua, -1, -2)) {
+        lua_pop(lua, 2);  /* remove both metatables */
+        return *((sts_word *) ud);
+      } else {
+        lua_pop(lua, 1);  /* remove word metatable */
+        lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_window);
+        if (lua_rawequal(lua, -1, -2)) {
+          sts_window window = *((struct sts_window **) ud);
+          if (window->values->cnt < window->current_word.n_values) {
+            luaL_argerror(lua, ind, 
+                "sax.window detected but it has not enough values to construct a word");
+          }
+          lua_pop(lua, 2);  /* remove both metatables */
+          return &window->current_word;
+        }
+      }
+    }
+  }
+  luaL_typerror(lua, ind, "sax.window or sax.word");
+  return NULL;
+}
+
+static sts_window check_sax_window(lua_State* lua, int ind)
+{
+  sts_window* ud = luaL_checkudata(lua, ind, mozsvc_sax_window);
   luaL_argcheck(lua, ud != NULL, ind, "invalid userdata type");
-  sts_word a = *ud;
-  luaL_argcheck(lua, a != NULL, ind, "invalid sax_word address");
-  luaL_argcheck(lua, a->symbols != NULL, ind, "invalid sax_word symbols");
-  check_nwc(lua, a->n_values, a->w, a->c, ind, allow_n_zero);
-  return a;
+  luaL_argcheck(lua, *ud != NULL, ind, "invalid sax_window address");
+  sts_window win = *ud;
+  return win;
 }
 
 static int sax_new_window(lua_State* lua)
 {
-  int argc = lua_gettop(lua);
-  luaL_argcheck(lua, argc == 3, 0, "incorrect number of arguments");
+  luaL_argcheck(lua, lua_gettop(lua) == 3, 0, "incorrect number of args");
   int n = luaL_checkint(lua, 1);
   int w = luaL_checkint(lua, 2);
   int c = luaL_checkint(lua, 3);
@@ -79,7 +101,8 @@ static void push_word(lua_State* lua, const struct sts_word* a)
 
 static int sax_add(lua_State* lua)
 {
-  sts_window win = check_sax_window(lua, 2);
+  luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
+  sts_window win = check_sax_window(lua, 1);
   double d = luaL_checknumber(lua, 2);
   const struct sts_word* a = sts_append_value(win, d);
   if (!a) {
@@ -93,8 +116,8 @@ static int sax_add(lua_State* lua)
 static int sax_mindist(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1, 1);
-  sts_word b = check_sax_word(lua, 2, 1);
+  const struct sts_word *a = check_word_or_window(lua, 1);
+  const struct sts_word *b = check_word_or_window(lua, 2);
 
   double d = sts_mindist(a, b);
   if (isnan(d)) {
@@ -108,7 +131,7 @@ static int sax_mindist(lua_State* lua)
 static int sax_word_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1, 1);
+  sts_word a = check_sax_word(lua, 1);
   size_t w = a->w;
   size_t c = a->c;
   char *str = malloc(w + 1 * sizeof *str);
@@ -126,8 +149,8 @@ static int sax_word_to_string(lua_State* lua)
 static int sax_word_equal(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1, 1);
-  sts_word b = check_sax_word(lua, 2, 1);
+  sts_word a = check_sax_word(lua, 1);
+  sts_word b = check_sax_word(lua, 2);
   if (a->w != b->w || a->c != b->c) {
     lua_pushboolean(lua, 0);
     return 1;
@@ -146,7 +169,7 @@ static int sax_word_equal(lua_State* lua)
 static int sax_word_copy(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1, 1);
+  sts_word a = check_sax_word(lua, 1);
   sts_word new_a = sts_dup_word(a);
   push_word(lua, new_a);
   return 1;
@@ -206,6 +229,7 @@ static int sax_new_word(lua_State* lua)
 
 static int sax_clear(lua_State* lua)
 {
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of arguments");
   sts_window win = check_sax_window(lua, 1);
   sts_reset_window(win);
   return 0;
@@ -213,6 +237,7 @@ static int sax_clear(lua_State* lua)
 
 static int sax_gc_window(lua_State* lua)
 {
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of arguments");
   sts_window win = check_sax_window(lua, 1);
   sts_free_window(win);
   return 0;
@@ -220,7 +245,8 @@ static int sax_gc_window(lua_State* lua)
 
 static int sax_gc_word(lua_State* lua)
 {
-  sts_word a = check_sax_word(lua, 1, 1);
+  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of arguments");
+  sts_word a = check_sax_word(lua, 1);
   sts_free_word(a);
   return 0;
 }

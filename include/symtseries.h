@@ -24,6 +24,18 @@ typedef struct sts_word {
     sts_symbol *symbols;
 } *sts_word;
 
+struct sts_ring_buffer {
+    size_t cnt;
+    double *buffer, *buffer_end;
+    double *head, *tail;
+};
+
+struct sts_window {
+    struct sts_ring_buffer* values;
+    struct sts_word current_word;
+    double *norm_buffer;
+};
+
 typedef struct sts_window *sts_window;
 
 /*

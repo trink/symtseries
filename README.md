@@ -81,14 +81,17 @@ print(a == b)
 #### mindist(a, b)
 ```lua
 local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
-local b = sax.new_word({-9, -8, -7, -5, -5, 7.2}, 2, 8)
+local values = {-9, -8, -7, -5, -5, 7.2}
+local b = sax.new_window(#values, 2, 8)
+for i=1,#values do b(values[i]) end
 local d = sax.mindist(a, b)
 -- d == 1.5676734353812
 ```
 
 *Arguments*  
 
-- a, b (mozsvc.sax.word) SAX words. Note that currently mindist between different-[nwc] words is not supported
+- a, b (mozsvc.sax.word or mozsvc.sax.window) SAX words or windows to compute mindist. 
+- Note that currently mindist between different-[nwc] words is not supported
 
 *Return*  
 
