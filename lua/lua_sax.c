@@ -146,11 +146,11 @@ static int sax_word_to_string(lua_State* lua)
   return 1;
 }
 
-static int sax_word_equal(lua_State* lua)
+static int sax_equal(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
-  sts_word b = check_sax_word(lua, 2);
+  const struct sts_word *a = check_word_or_window(lua, 1);
+  const struct sts_word *b = check_word_or_window(lua, 2);
   if (a->w != b->w || a->c != b->c) {
     lua_pushboolean(lua, 0);
     return 1;
@@ -263,7 +263,6 @@ static const struct luaL_Reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
   , { "__tostring", sax_word_to_string }
-  , { "__eq", sax_word_equal }
   , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
@@ -276,17 +275,27 @@ static const struct luaL_Reg saxlib_win[] =
   , { NULL, NULL }
 };
 
+void reg_module(lua_State* lua, const char *name, const struct luaL_Reg *module) {
+  luaL_newmetatable(lua, name);
+  lua_pushvalue(lua, -1);
+  lua_setfield(lua, -2, "__index");
+  luaL_register(lua, NULL, module);
+  lua_pushstring(lua, "__eq");
+  lua_pushvalue(lua, -3); // Copy sax_equal on top
+  lua_settable(lua, -3);
+  lua_pop(lua, 1); // Pop table
+}
 
 int luaopen_sax(lua_State* lua)
 {
-  luaL_newmetatable(lua, mozsvc_sax_window);
-  lua_pushvalue(lua, -1);
-  lua_setfield(lua, -2, "__index");
-  luaL_register(lua, NULL, saxlib_win);
-  luaL_newmetatable(lua, mozsvc_sax_word);
-  lua_pushvalue(lua, -1);
-  lua_setfield(lua, -2, "__index");
-  luaL_register(lua, NULL, saxlib_word);
+  /* We're registering sax_equal separately since it's the only way to make lua
+   * aware that it's exactly the same function each time 
+   * (otherwise it doesn't get called on different object types) */
+  lua_pushcfunction(lua, sax_equal);
+
+  reg_module(lua, mozsvc_sax_window, saxlib_win);
+  reg_module(lua, mozsvc_sax_word, saxlib_word);
+
   luaL_register(lua, mozsvc_sax_table, saxlib_f);
   return 1;
 }

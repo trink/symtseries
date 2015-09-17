@@ -138,6 +138,25 @@ print(window:add(1.3) == nil)
 
 - Nothing. Just resets the window.
 
+#### __eq
+```lua
+local window = sax.new_window(4, 2, 4)
+local values = {1, 2, 3, 10.1}
+local a, b
+
+for i=1,4 do a = window:add(values[i]) end
+
+b = sax.new_word(values, 2, 4)
+
+print(a == b)
+print(window == b)
+-- prints true true
+```
+
+*Return*  
+
+- Whether or not two words are considered equal (per-symbol, w, and c comparison)
+
 ###Word methods
 
 #### __tostring
@@ -152,22 +171,7 @@ print(a)
 - string representing this word in SAX notation
 
 #### __eq
-```lua
-local window = sax.new_window(4, 2, 4)
-local values = {1, 2, 3, 10.1}
-local a, b
-
-for i=1,4 do a = window:add(values[i]) end
-
-b = sax.new_word(values, 2, 4)
-
-print(a == b)
--- prints true
-```
-
-*Return*  
-
-- Whether or not two words are considered equal (per-symbol, w, and c comparison)
+See window.__eq
 
 #### copy()
 ```lua
