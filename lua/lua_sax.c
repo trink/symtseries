@@ -138,7 +138,10 @@ static int sax_word_to_string(lua_State* lua)
   str[w] = '\0';
   for (size_t i = 0; i < w; ++i) {
     unsigned char dig = a->symbols[i];
-    luaL_argcheck(lua, dig <= c, 1, "symbol out of range encountered");
+    if (dig > c) {
+      free(str);
+      luaL_argerror(lua, 1, "symbol out of range encountered");
+    }
     str[i] = c - a->symbols[i] - 1 + 'A';
   }
   lua_pushstring(lua, str);
@@ -203,7 +206,11 @@ static int sax_from_double_array(lua_State* lua)
   for (int i = 1; i <= size; ++i) {
     lua_pushnumber(lua, i);
     lua_gettable(lua, 1);
-    buf[i-1] = luaL_checknumber(lua, -1);
+    if (!lua_isnumber(lua, -1)) {
+      free(buf);
+      luaL_argerror(lua, 1, "expected array of numbers as input");
+    }
+    buf[i-1] = lua_tonumber(lua, -1);
     lua_pop(lua, 1);
   }
 
