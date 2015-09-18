@@ -46,7 +46,7 @@ static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
         lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_window);
         if (lua_rawequal(lua, -1, -2)) {
           sts_window window = *((struct sts_window **) ud);
-          if (window->values->cnt < window->current_word.n_values) {
+          if (!sts_window_is_ready(window)) {
             luaL_argerror(lua, ind, 
                 "sax.window detected but it has not enough values to construct a word");
           }
@@ -132,18 +132,8 @@ static int sax_word_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
   sts_word a = check_sax_word(lua, 1);
-  size_t w = a->w;
-  size_t c = a->c;
-  char *str = malloc(w + 1 * sizeof *str);
-  str[w] = '\0';
-  for (size_t i = 0; i < w; ++i) {
-    unsigned char dig = a->symbols[i];
-    if (dig > c) {
-      free(str);
-      luaL_argerror(lua, 1, "symbol out of range encountered");
-    }
-    str[i] = c - a->symbols[i] - 1 + 'A';
-  }
+  char *str = sts_word_to_sax_string(a);
+  if (!str) luaL_argerror(lua, 1, "unprocessable symbols for cardinality detected");
   lua_pushstring(lua, str);
   free(str);
   return 1;
@@ -182,7 +172,7 @@ static int sax_window_get_word(lua_State *lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
   sts_window window = check_sax_window(lua, 1);
-  if (window->values->cnt < window->current_word.n_values) {
+  if (!sts_window_is_ready(window)) {
     lua_pushnil(lua);
   } else {
     push_word(lua, sts_dup_word(&window->current_word));
