@@ -346,8 +346,7 @@ static sts_word new_word(size_t n, size_t w, short c, sts_symbol *symbols) {
 }
 
 static sts_word update_current_word(sts_window window) {
-    if (window->values->cnt < window->current_word.n_values) return NULL;
-
+    if (!sts_window_is_ready(window)) return NULL;
     normalize(window->values->tail, window->current_word.n_values, window->values->head, 
             window->values->buffer, window->values->buffer_end, window->norm_buffer);
     apply_sax_transform(window->current_word.n_values, window->current_word.w, 
@@ -399,6 +398,21 @@ sts_word sts_from_sax_string(const char *symbols, size_t c) {
         sts_symbols[i] = c - (symbols[i] - 'A') - 1;
     }
     return new_word(0, w, c, sts_symbols);
+}
+
+char *sts_word_to_sax_string(const struct sts_word *a) {
+    if (!a || !a->symbols) return NULL;
+    char *str = malloc((a->w + 1) * sizeof *str);
+    str[a->w] = '\0';
+    for (size_t i = 0; i < a->w; ++i) {
+        unsigned char dig = a->symbols[i];
+        if (dig > a->c) {
+            free(str);
+            return NULL;
+        }
+        str[i] = a->c - a->symbols[i] - 1 + 'A';
+    }
+    return str;
 }
 
 double sts_mindist(const struct sts_word* a, const struct sts_word* b) {
@@ -458,6 +472,11 @@ sts_word sts_dup_word(const struct sts_word* a) {
     sts_symbol *sts_symbols = malloc(a->w * sizeof *sts_symbols);
     memcpy(sts_symbols, a->symbols, a->w * sizeof *sts_symbols);
     return new_word(a->n_values, a->w, a->c, sts_symbols);
+}
+
+bool sts_window_is_ready(const struct sts_window *window) {
+    if (!window || !window->values || !window->current_word.symbols) return false;
+    return window->values->cnt == window->current_word.n_values;
 }
 
 /* No namespaces in C, so it goes here */

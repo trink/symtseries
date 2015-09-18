@@ -30,13 +30,11 @@ struct sts_ring_buffer {
     double *head, *tail;
 };
 
-struct sts_window {
+typedef struct sts_window {
     struct sts_ring_buffer* values;
     struct sts_word current_word;
     double *norm_buffer;
-};
-
-typedef struct sts_window *sts_window;
+} *sts_window;
 
 /*
  * Initializes empty window-like-container
@@ -84,6 +82,12 @@ sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, 
 sts_word sts_from_sax_string(const char *symbols, size_t c);
 
 /*
+ * @param a: word
+ * @returns NULL on failure (illegal symbols for cardinality) or SAX string corresponding to a
+ */
+char *sts_word_to_sax_string(const struct sts_word *a);
+
+/*
  * Returns the lowerbounding approximation on distance 
  * between sax-represented series a and b.
  * One of the words can have sts_word->n_values == 0 and 
@@ -117,5 +121,11 @@ bool sts_reset_window(sts_window w);
  * @returns freshly-allocated copy of the provided word or NULL on failure
  */
 sts_word sts_dup_word(const struct sts_word* a);
+
+/*
+ * @param a: window
+ * @returns whether there is enough values stored in window to construct current word
+ */
+bool sts_window_is_ready(const struct sts_window *a);
 
 #endif
