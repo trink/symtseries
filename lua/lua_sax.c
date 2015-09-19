@@ -99,12 +99,39 @@ static void push_word(lua_State* lua, const struct sts_word* a)
   lua_setmetatable(lua, -2);
 }
 
+static double *check_array(lua_State* lua, int ind, size_t size) 
+{
+  double *buf = malloc(size * sizeof *buf);
+  if (!buf) luaL_error(lua, "memory allocation failed");
+  for (size_t i = 1; i <= size; ++i) {
+    lua_pushnumber(lua, i);
+    lua_gettable(lua, ind);
+    if (!lua_isnumber(lua, -1)) {
+      free(buf);
+      luaL_argerror(lua, 1, "expected array of numbers as input");
+    }
+    buf[i-1] = lua_tonumber(lua, -1);
+    lua_pop(lua, 1);
+  }
+  return buf;
+}
+
 static int sax_add(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
   sts_window win = check_sax_window(lua, 1);
-  double d = luaL_checknumber(lua, 2);
-  const struct sts_word* a = sts_append_value(win, d);
+  const struct sts_word* a = NULL;
+  if (lua_isnumber(lua, 2)) {
+    double d = lua_tonumber(lua, 2);
+    a = sts_append_value(win, d);
+  } else {
+    if (!lua_istable(lua, 2)) 
+      luaL_argerror(lua, 2, "number or array-like table expected");
+    size_t size = lua_objlen(lua, 2);
+    double *vals = check_array(lua, 2, size);
+    a = sts_append_array(win, vals, size);
+    free(vals);
+  }
   if (!a) {
     lua_pushboolean(lua, 0);
   } else {
@@ -187,23 +214,10 @@ static int sax_from_double_array(lua_State* lua)
   if (!lua_istable(lua, 1)) 
     luaL_argerror(lua, 1, "array-like table expected");
 
-  int size = lua_objlen(lua, 1);
+  size_t size = lua_objlen(lua, 1);
   check_nwc(lua, size, w, c, 2, 0);
 
-  double *buf = malloc(size * sizeof *buf);
-  if (!buf) luaL_error(lua, "memory allocation failed");
-
-  for (int i = 1; i <= size; ++i) {
-    lua_pushnumber(lua, i);
-    lua_gettable(lua, 1);
-    if (!lua_isnumber(lua, -1)) {
-      free(buf);
-      luaL_argerror(lua, 1, "expected array of numbers as input");
-    }
-    buf[i-1] = lua_tonumber(lua, -1);
-    lua_pop(lua, 1);
-  }
-
+  double *buf = check_array(lua, 1, size);
   sts_word a = sts_from_double_array(buf, size, w, c);
   if (!a) luaL_error(lua, "memory allocation failed");
   free(buf);

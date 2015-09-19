@@ -107,14 +107,16 @@ local a = sax.new_word(values, 2, 4)
 
 for i=1,4 do print(window:add(values[i])) end
 
-print(sax.mindist(a, window:get_word()))
+print(a == window)
+print(window:add({-10, 1, 2, 3, 10.1})) -- it only copies n last values if given more than n
+print(a == window)
 
--- prints false false false true 0.0
+-- prints false false false true true true
 ```
 
 *Arguments*  
 
-- val (number) value to be appended to a window
+- val (number or array) value(s) to be appended to a window
 
 *Return*  
 
