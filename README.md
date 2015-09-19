@@ -97,6 +97,15 @@ local d = sax.mindist(a, b)
 
 - Lowerbounding approximation of the Euclidian distance between series represented in a and b
 
+#### version()
+```lua
+print(sax.version())
+```
+
+*Return*
+
+- Version number as a string
+
 ###Window methods
 
 #### add(val)

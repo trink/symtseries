@@ -274,11 +274,18 @@ static int sax_gc_word(lua_State* lua)
   return 0;
 }
 
+static int sax_version(lua_State* lua)
+{
+  lua_pushstring(lua, DIST_VERSION);
+  return 1;
+}
+
 static const struct luaL_Reg saxlib_f[] =
 {
   { "new_window", sax_new_window }
   , { "new_word", sax_new_word }
   , { "mindist", sax_mindist }
+  , { "version", sax_version }
   , { NULL, NULL }
 };
 
