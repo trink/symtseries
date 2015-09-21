@@ -4,10 +4,11 @@
 
 # Build lua wrap library
 
-project (sax C)
-include (${CMAKE_MODULE_PATH}/dist.cmake)
-add_definitions( -DLUA_COMPAT_MODULE -DDIST_VERSION="${DIST_VERSION}" )
+project(sax C)
+include(${CMAKE_MODULE_PATH}/dist.cmake)
+add_definitions(-DLUA_COMPAT_MODULE -DDIST_VERSION="${DIST_VERSION}")
 include(lua)
 
-install_lua_module (sax lua_sax.c)
+install_lua_module(sax lua_sax.c)
 target_link_libraries(sax symtseries)
+add_lua_test(test.lua)
