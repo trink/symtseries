@@ -15,9 +15,9 @@ static const char* mozsvc_sax_window = "mozsvc.sax.window";
 static const char* mozsvc_sax_word = "mozsvc.sax.word";
 static const char* mozsvc_sax_table = "sax";
 
-static void check_nwc(lua_State* lua, int n, int w, int c, int offset, int allow_n_zero) 
+static void check_nwc(lua_State* lua, int n, int w, int c, int offset) 
 {
-  luaL_argcheck(lua, (allow_n_zero ? n >= 0 : n > 1) && n <= 4096, 
+  luaL_argcheck(lua, n > 1 && n <= 4096, 
       offset, "n is out of range");
   luaL_argcheck(lua, w > 1 && w <= 2048, offset, "w is out of range");
   luaL_argcheck(lua, n % w == 0, offset, 
@@ -62,11 +62,9 @@ static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
 
 static sts_window check_sax_window(lua_State* lua, int ind)
 {
+  /* same as with check_sax_word - no need to check for NULLs */
   sts_window* ud = luaL_checkudata(lua, ind, mozsvc_sax_window);
-  luaL_argcheck(lua, ud != NULL, ind, "invalid userdata type");
-  luaL_argcheck(lua, *ud != NULL, ind, "invalid sax_window address");
-  sts_window win = *ud;
-  return win;
+  return *ud;
 }
 
 static int sax_new_window(lua_State* lua)
@@ -75,7 +73,7 @@ static int sax_new_window(lua_State* lua)
   int n = luaL_checkint(lua, 1);
   int w = luaL_checkint(lua, 2);
   int c = luaL_checkint(lua, 3);
-  check_nwc(lua, n, w, c, 1, 0);
+  check_nwc(lua, n, w, c, 1);
 
   sts_window win = sts_new_window(n, w, c);
   if (!win) luaL_error(lua, "memory allocation failed");
@@ -215,7 +213,7 @@ static int sax_from_double_array(lua_State* lua)
     luaL_argerror(lua, 1, "array-like table expected");
 
   size_t size = lua_objlen(lua, 1);
-  check_nwc(lua, size, w, c, 2, 0);
+  check_nwc(lua, size, w, c, 2);
 
   double *buf = check_array(lua, 1, size);
   sts_word a = sts_from_double_array(buf, size, w, c);
