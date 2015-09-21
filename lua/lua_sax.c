@@ -11,9 +11,11 @@
 #include <math.h>
 #include <symtseries.h>
 
+static const char* mozsvc_sax_table = "sax";
 static const char* mozsvc_sax_window = "mozsvc.sax.window";
 static const char* mozsvc_sax_word = "mozsvc.sax.word";
-static const char* mozsvc_sax_table = "sax";
+static const char* mozsvc_sax_win_suffix = "window";
+static const char* mozsvc_sax_word_suffix = "word";
 
 static void check_nwc(lua_State* lua, int n, int w, int c, int offset) 
 {
@@ -280,9 +282,7 @@ static int sax_version(lua_State* lua)
 
 static const struct luaL_Reg saxlib_f[] =
 {
-  { "new_window", sax_new_window }
-  , { "new_word", sax_new_word }
-  , { "mindist", sax_mindist }
+  { "mindist", sax_mindist }
   , { "version", sax_version }
   , { NULL, NULL }
 };
@@ -304,15 +304,23 @@ static const struct luaL_Reg saxlib_win[] =
   , { NULL, NULL }
 };
 
-void reg_module(lua_State* lua, const char *name, const struct luaL_Reg *module) {
+void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
+{
   luaL_newmetatable(lua, name);
   lua_pushvalue(lua, -1);
   lua_setfield(lua, -2, "__index");
   luaL_register(lua, NULL, module);
-  lua_pushstring(lua, "__eq");
-  lua_pushvalue(lua, -3); // Copy sax_equal on top
-  lua_settable(lua, -3);
+  lua_pushvalue(lua, -2); // Copy sax_equal on top
+  lua_setfield(lua, -2, "__eq");
   lua_pop(lua, 1); // Pop table
+}
+
+void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
+{
+  lua_newtable(lua);
+  lua_pushcfunction(lua, module);
+  lua_setfield(lua, -2, "new");
+  lua_setfield(lua, -2, name);
 }
 
 int luaopen_sax(lua_State* lua)
@@ -322,9 +330,15 @@ int luaopen_sax(lua_State* lua)
    * (otherwise it doesn't get called on different object types) */
   lua_pushcfunction(lua, sax_equal);
 
-  reg_module(lua, mozsvc_sax_window, saxlib_win);
-  reg_module(lua, mozsvc_sax_word, saxlib_word);
+  reg_class(lua, mozsvc_sax_window, saxlib_win);
+  reg_class(lua, mozsvc_sax_word, saxlib_word);
 
-  luaL_register(lua, mozsvc_sax_table, saxlib_f);
+  lua_newtable(lua);
+  luaL_register(lua, NULL, saxlib_f);
+  reg_module(lua, mozsvc_sax_word_suffix, sax_new_word);
+  reg_module(lua, mozsvc_sax_win_suffix, sax_new_window);
+  lua_pushvalue(lua, -1);
+  lua_setfield(lua, LUA_GLOBALSINDEX, mozsvc_sax_table);
+
   return 1;
 }
