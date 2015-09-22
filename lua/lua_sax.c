@@ -11,6 +11,11 @@
 #include <math.h>
 #include <symtseries.h>
 
+#ifdef LUA_SANDBOX
+#include "luasandbox_output.h"
+#include "luasandbox_serialize.h"
+#endif
+
 static const char* mozsvc_sax_table = "sax";
 static const char* mozsvc_sax_window = "mozsvc.sax.window";
 static const char* mozsvc_sax_word = "mozsvc.sax.word";
@@ -285,7 +290,8 @@ static int serialize_sax(lua_State* lua)
   sax_type type = sax_gettype(lua, -3);
   if (!key || !output) return 1;
   switch (type) {
-    case SAX_WINDOW:
+    case SAX_WINDOW: 
+    {
       const struct sts_window *win = check_sax_window(lua, -3);
       size_t n = win->current_word.n_values;
       size_t w = win->current_word.w;
@@ -297,39 +303,46 @@ static int serialize_sax(lua_State* lua)
       size_t n_values = 0;
       while (val != win->values->head) {
         if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
-        if (lsb_appedf(output, "%lf", *val)) return 1;
-        if (++val == win->values->buffer_end) val = win->vallues->buffer;
+        if (lsb_appendf(output, "%lf", *val)) return 1;
+        if (++val == win->values->buffer_end) val = win->values->buffer;
       }
-      if (lsb_appends(output, "})\n"), 3) return 1;
+      if (lsb_appends(output, "})\n", 3)) return 1;
       return 0;
+    }
     case SAX_WORD:
+    {
       const struct sts_word *a = check_sax_word(lua, -3);
       char *sax = sts_word_to_sax_string(a);
       if (!sax) luaL_error(lua, "memory allocation failed");
       if (lsb_appendf(output,
             "if %s == nil then %s = sax.word.new(%s, %zu)\n", 
-            key, key, sax, c)) return 1;
+            key, key, sax, a->c)) return 1;
       free(sax);
       return 0;
+    }
   }
 }
 
 static int output_sax(lua_State* lua)
 {
-  lsb_output_data *ouput = lua_touserdata(lua, -1);
+  lsb_output_data *output = lua_touserdata(lua, -1);
   sax_type type = sax_gettype(lua, -2);
   if (!output) return 1;
   switch (type) {
     case SAX_WINDOW:
+    {
       return lsb_appends(output, 
           (const char*)lua_touserdata(lua, -2), sizeof(struct sts_window));
+    }
     case SAX_WORD:
+    {
       const struct sts_word *a = check_sax_word(lua, -2);
       char *sax = sts_word_to_sax_string(a);
       if (!sax) luaL_error(lua, "memory allocation failed");
-      if (lsb_appendf(output, "{%s, c = %zu}"), sax, a->c) return 1;
+      if (lsb_appendf(output, "{%s, c = %zu}", sax, a->c)) return 1;
       free(sax);
       return 0;
+    }
   }
 }
 
