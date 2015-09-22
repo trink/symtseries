@@ -11,7 +11,7 @@ The codebase under this repository is supposed to be operated in one of three wa
 ##Installation
 ###Prerequisites
 * C compiler (GCC 4.7+)
-* Lua 5.1, Lua 5.2, or LuaJIT (optional, needed to build Lua part)
+* Lua 5.1 (optional, needed to build Lua part)
 * [CMake (3.0+)](http://cmake.org/cmake/resources/software.html)
 
 ###CMake Build Instructions

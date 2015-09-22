@@ -34,7 +34,9 @@ static sts_word check_sax_word(lua_State* lua, int ind) {
   return *ud;
 }
 
-static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
+typedef enum {SAX_WORD, SAX_WINDOW} sax_type;
+
+static sax_type sax_gettype(lua_State* lua, int ind)
 {
   void *ud = lua_touserdata(lua, ind);
   if (ud != NULL) {  
@@ -42,24 +44,35 @@ static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
       lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_word);
       if (lua_rawequal(lua, -1, -2)) {
         lua_pop(lua, 2);  /* remove both metatables */
-        return *((sts_word *) ud);
+        return SAX_WORD;
       } else {
         lua_pop(lua, 1);  /* remove word metatable */
         lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_window);
         if (lua_rawequal(lua, -1, -2)) {
-          sts_window window = *((struct sts_window **) ud);
-          if (!sts_window_is_ready(window)) {
-            luaL_argerror(lua, ind, 
-                "sax.window detected but it has not enough values to construct a word");
-          }
           lua_pop(lua, 2);  /* remove both metatables */
-          return &window->current_word;
+          return SAX_WINDOW;
         }
       }
     }
   }
-  luaL_typerror(lua, ind, "sax.window or sax.word");
-  return NULL;
+  luaL_typerror(lua, ind, "sax.window or sax.word expected");
+  return SAX_WORD; // to silence the warning; unreachable due to longjmp
+}
+
+static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
+{
+  sax_type type = sax_gettype(lua, ind);
+  void *ud = lua_touserdata(lua, ind);
+  if (type == SAX_WORD) {
+    return *((sts_word *) ud);
+  } else {
+    sts_window window = *((struct sts_window **) ud);
+    if (!sts_window_is_ready(window)) {
+      luaL_argerror(lua, ind, 
+          "sax.window detected but it has not enough values to construct a word");
+    }
+    return &window->current_word;
+  }
 }
 
 static sts_window check_sax_window(lua_State* lua, int ind)
@@ -67,6 +80,16 @@ static sts_window check_sax_window(lua_State* lua, int ind)
   /* same as with check_sax_word - no need to check for NULLs */
   sts_window* ud = luaL_checkudata(lua, ind, mozsvc_sax_window);
   return *ud;
+}
+
+static void push_window(lua_State* lua, sts_window win) 
+{
+  sts_window* ud = lua_newuserdata(lua, sizeof *ud);
+  if (!ud) luaL_error(lua, "memory allocation failed");
+  *ud = win;
+
+  luaL_getmetatable(lua, mozsvc_sax_window);
+  lua_setmetatable(lua, -2);
 }
 
 static int sax_new_window(lua_State* lua)
@@ -80,12 +103,7 @@ static int sax_new_window(lua_State* lua)
   sts_window win = sts_new_window(n, w, c);
   if (!win) luaL_error(lua, "memory allocation failed");
 
-  sts_window* ud = lua_newuserdata(lua, sizeof *ud);
-  if (!ud) luaL_error(lua, "memory allocation failed");
-  *ud = win;
-
-  luaL_getmetatable(lua, mozsvc_sax_window);
-  lua_setmetatable(lua, -2);
+  push_window(lua, win);
   return 1;
 }
 
@@ -195,7 +213,7 @@ static int sax_word_copy(lua_State* lua)
   return 1;
 }
 
-static int sax_window_get_word(lua_State *lua)
+static int sax_window_get_word(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
   sts_window window = check_sax_window(lua, 1);
@@ -257,6 +275,65 @@ static int sax_clear(lua_State* lua)
   sts_reset_window(win);
   return 0;
 }
+
+#ifdef LUA_SANDBOX
+
+static int serialize_sax(lua_State* lua)
+{
+  lsb_output_data *output = lua_touserdata(lua, -1);
+  const char *key = lua_touserdata(lua, -2);
+  sax_type type = sax_gettype(lua, -3);
+  if (!key || !output) return 1;
+  switch (type) {
+    case SAX_WINDOW:
+      const struct sts_window *win = check_sax_window(lua, -3);
+      size_t n = win->current_word.n_values;
+      size_t w = win->current_word.w;
+      size_t c = win->current_word.c;
+      if (lsb_appendf(output,
+            "if %s == nil then %s = sax.window.new(%zu, %zu, %zu)\n%s:add({", 
+            key, key, n, w, c, key)) return 1;
+      double *val = win->values->tail;
+      size_t n_values = 0;
+      while (val != win->values->head) {
+        if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
+        if (lsb_appedf(output, "%lf", *val)) return 1;
+        if (++val == win->values->buffer_end) val = win->vallues->buffer;
+      }
+      if (lsb_appends(output, "})\n"), 3) return 1;
+      return 0;
+    case SAX_WORD:
+      const struct sts_word *a = check_sax_word(lua, -3);
+      char *sax = sts_word_to_sax_string(a);
+      if (!sax) luaL_error(lua, "memory allocation failed");
+      if (lsb_appendf(output,
+            "if %s == nil then %s = sax.word.new(%s, %zu)\n", 
+            key, key, sax, c)) return 1;
+      free(sax);
+      return 0;
+  }
+}
+
+static int output_sax(lua_State* lua)
+{
+  lsb_output_data *ouput = lua_touserdata(lua, -1);
+  sax_type type = sax_gettype(lua, -2);
+  if (!output) return 1;
+  switch (type) {
+    case SAX_WINDOW:
+      return lsb_appends(output, 
+          (const char*)lua_touserdata(lua, -2), sizeof(struct sts_window));
+    case SAX_WORD:
+      const struct sts_word *a = check_sax_word(lua, -2);
+      char *sax = sts_word_to_sax_string(a);
+      if (!sax) luaL_error(lua, "memory allocation failed");
+      if (lsb_appendf(output, "{%s, c = %zu}"), sax, a->c) return 1;
+      free(sax);
+      return 0;
+  }
+}
+
+#endif // LUA_SANDBOX
 
 static int sax_gc_window(lua_State* lua)
 {
@@ -325,6 +402,13 @@ void reg_module(lua_State* lua, const char *name, const lua_CFunction module)
 
 int luaopen_sax(lua_State* lua)
 {
+#ifdef LUA_SANDBOX
+  lua_newtable(lua);
+  lsb_add_serialize_function(lua, serialize_sax);
+  lsb_add_output_function(lua, output_sax);
+  lua_replace(lua, LUA_ENVIRONINDEX);
+#endif // LUA_SANDBOX
+
   /* We're registering sax_equal separately since it's the only way to make lua
    * aware that it's exactly the same function each time 
    * (otherwise it doesn't get called on different object types) */
