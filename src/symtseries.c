@@ -403,6 +403,7 @@ sts_word sts_from_sax_string(const char *symbols, size_t c) {
 char *sts_word_to_sax_string(const struct sts_word *a) {
     if (!a || !a->symbols) return NULL;
     char *str = malloc((a->w + 1) * sizeof *str);
+    if (!str) return NULL;
     str[a->w] = '\0';
     for (size_t i = 0; i < a->w; ++i) {
         unsigned char dig = a->symbols[i];

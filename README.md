@@ -11,7 +11,7 @@ The codebase under this repository is supposed to be operated in one of three wa
 ##Installation
 ###Prerequisites
 * C compiler (GCC 4.7+)
-* Lua 5.1, Lua 5.2, or LuaJIT (optional, needed to build Lua part)
+* Lua 5.1 (optional, needed to build Lua part)
 * [CMake (3.0+)](http://cmake.org/cmake/resources/software.html)
 
 ###CMake Build Instructions
@@ -36,10 +36,10 @@ SAX is the method of time series data representation which provides a user with 
 ###Example Usage
 
 ###API functions
-#### new_window(n, w, c)
+#### window.new(n, w, c)
 ```lua
 require "sax"
-local window = sax.new_window(150, 10, 8)
+local window = sax.window.new(150, 10, 8)
 ```
 
 Import _sax_ module via the Lua 'require' function. The module is
@@ -55,10 +55,10 @@ globally registered and returned by the require function.
 
 - mozsvc.sax.window userdata object.
 
-#### new_word[(v, n, w, c), (s, c)]
+#### word.new[(v, n, w, c), (s, c)]
 ```lua
-local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
-local b = sax.new_word("FC", 8)
+local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
+local b = sax.word.new("FC", 8)
 print(a == b)
 -- prints true
 ```
@@ -80,9 +80,9 @@ print(a == b)
 
 #### mindist(a, b)
 ```lua
-local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
+local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local values = {-9, -8, -7, -5, -5, 7.2}
-local b = sax.new_window(#values, 2, 8)
+local b = sax.window.new(#values, 2, 8)
 for i=1,#values do b:add(values[i]) end
 local d = sax.mindist(a, b)
 -- d == 1.5676734353812
@@ -97,24 +97,35 @@ local d = sax.mindist(a, b)
 
 - Lowerbounding approximation of the Euclidian distance between series represented in a and b
 
+#### version()
+```lua
+print(sax.version())
+```
+
+*Return*
+
+- Version number as a string
+
 ###Window methods
 
 #### add(val)
 ```lua
-local window = sax.new_window(4, 2, 4)
+local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
-local a = sax.new_word(values, 2, 4)
+local a = sax.word.new(values, 2, 4)
 
 for i=1,4 do print(window:add(values[i])) end
 
-print(sax.mindist(a, window:get_word()))
+print(a == window)
+print(window:add({-10, 1, 2, 3, 10.1})) -- it only copies n last values if given more than n
+print(a == window)
 
--- prints false false false true 0.0
+-- prints false false false true true true
 ```
 
 *Arguments*  
 
-- val (number) value to be appended to a window
+- val (number or array) value(s) to be appended to a window
 
 *Return*  
 
@@ -128,7 +139,7 @@ print(sax.mindist(a, window:get_word()))
 
 #### clear()
 ```lua
-local window = sax.new_window(4, 2, 4)
+local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 
 for i=1,4 do window:add(values[i]) end
@@ -146,13 +157,13 @@ print(window:get_word() == nil)
 
 #### __eq
 ```lua
-local window = sax.new_window(4, 2, 4)
+local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 local a, b
 
 for i=1,4 do window:add(values[i]) end
 
-b = sax.new_word(values, 2, 4)
+b = sax.word.new(values, 2, 4)
 
 print(window:get_word() == b)
 print(window == b)
@@ -167,7 +178,7 @@ print(window == b)
 
 #### __tostring
 ```lua
-local a = sax.new_word({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
+local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 print(a)
 -- prints FC
 ```

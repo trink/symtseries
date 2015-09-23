@@ -4,7 +4,9 @@
 
 # Build main library
 add_library(symtseries SHARED symtseries.c)
+add_library(symtseries_stat STATIC symtseries.c)
 target_link_libraries(symtseries ${UNIX_LIBRARIES})
+target_link_libraries(symtseries_stat ${UNIX_LIBRARIES})
 install(TARGETS symtseries DESTINATION bin)
 
 # Build unit tests
