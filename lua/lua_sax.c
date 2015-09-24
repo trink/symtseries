@@ -321,6 +321,7 @@ static int serialize_sax(lua_State* lua)
       return 0;
     }
   }
+  return 1;
 }
 
 static int output_sax(lua_State* lua)
@@ -344,6 +345,7 @@ static int output_sax(lua_State* lua)
       return 0;
     }
   }
+  return 1;
 }
 
 #endif // LUA_SANDBOX
