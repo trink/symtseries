@@ -178,10 +178,10 @@ static int sax_mindist(lua_State* lua)
   return 1;
 }
 
-static int sax_word_to_string(lua_State* lua)
+static int sax_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
+  const struct sts_word *a = check_word_or_window(lua, 1);
   char *str = sts_word_to_sax_string(a);
   if (!str) luaL_argerror(lua, 1, "unprocessable symbols for cardinality detected");
   lua_pushstring(lua, str);
@@ -382,7 +382,7 @@ static const struct luaL_Reg saxlib_f[] =
 static const struct luaL_Reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
-  , { "__tostring", sax_word_to_string }
+  , { "__tostring", sax_to_string }
   , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
@@ -392,6 +392,7 @@ static const struct luaL_Reg saxlib_win[] =
   { "add", sax_add }
   , { "clear", sax_clear }
   , { "__gc", sax_gc_window }
+  , { "__tostring", sax_to_string }
   , { "get_word", sax_window_get_word }
   , { NULL, NULL }
 };
