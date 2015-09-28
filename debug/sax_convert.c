@@ -5,6 +5,12 @@
 #include "debug.h"
 #include <stdio.h>
 
+#ifdef _MSC_VER
+#pragma warning( push )
+// To silence unsafe warning
+#pragma warning( disable : 4996 )
+#endif
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         printf("Provide me with cardinality of the code\n");
@@ -27,3 +33,7 @@ int main(int argc, char **argv) {
         }
     }
 }
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif

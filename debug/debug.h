@@ -6,6 +6,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#pragma warning( push )
+// To silence unsafe warning
+#pragma warning( disable : 4996 )
+#endif
+
 char *strdup (const char *s) {
     char *d = malloc (strlen (s) + 1);
     if (d != NULL) strcpy (d,s);
@@ -50,3 +56,7 @@ void show_conv_iSAX(double *series, size_t n_values, size_t w, unsigned int c) {
     show_iSAX(word, w, c);
     sts_free_word(word);
 }
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
