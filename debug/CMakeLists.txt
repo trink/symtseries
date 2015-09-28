@@ -1,8 +1,0 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-add_executable(sax_convert sax_convert.c)
-target_link_libraries(sax_convert symtseries)
-add_executable(stat stat.c)
-target_link_libraries(stat symtseries)
