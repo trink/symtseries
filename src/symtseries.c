@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <stdbool.h>
 
 /* Breakpoints used in iSAX symbol estimation */
 static const double breaks[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1] = 
