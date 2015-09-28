@@ -10,7 +10,10 @@
 #define _SYMTSERIES_H_
 #include <float.h>
 #include <stdlib.h>
-#include <stdbool.h>
+
+typedef int bool;
+#define false 0
+#define true 1
 
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2

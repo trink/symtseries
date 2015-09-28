@@ -178,10 +178,10 @@ static int sax_mindist(lua_State* lua)
   return 1;
 }
 
-static int sax_word_to_string(lua_State* lua)
+static int sax_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
+  const struct sts_word *a = check_word_or_window(lua, 1);
   char *str = sts_word_to_sax_string(a);
   if (!str) luaL_argerror(lua, 1, "unprocessable symbols for cardinality detected");
   lua_pushstring(lua, str);
@@ -297,8 +297,9 @@ static int serialize_sax(lua_State* lua)
       size_t w = win->current_word.w;
       size_t c = win->current_word.c;
       if (lsb_appendf(output,
-            "if %s == nil then %s = sax.window.new(%zu, %zu, %zu) end\n%s:clear()\n%s:add({", 
-            key, key, n, w, c, key, key)) return 1;
+            "if %s == nil then %s = sax.window.new(%lu, %lu, %lu) end\n%s:clear()\n%s:add({", 
+            key, key, (unsigned long) n, (unsigned long) w, (unsigned long) c, key, key)) 
+        return 1;
       double *val = win->values->tail;
       size_t n_values = 0;
       while (val != win->values->head) {
@@ -316,11 +317,12 @@ static int serialize_sax(lua_State* lua)
       if (!sax) luaL_error(lua, "memory allocation failed");
       if (lsb_appendf(output,
             // Even if it was initialized, we can't alter it's state, so just re-construct
-            "%s = sax.word.new(\"%s\", %zu)\n", key, sax, a->c)) return 1;
+            "%s = sax.word.new(\"%s\", %lu)\n", key, sax, (unsigned long) a->c)) return 1;
       free(sax);
       return 0;
     }
   }
+  return 1;
 }
 
 static int output_sax(lua_State* lua)
@@ -339,11 +341,12 @@ static int output_sax(lua_State* lua)
       const struct sts_word *a = check_sax_word(lua, -2);
       char *sax = sts_word_to_sax_string(a);
       if (!sax) luaL_error(lua, "memory allocation failed");
-      if (lsb_appendf(output, "{sym = %s, c = %zu}", sax, a->c)) return 1;
+      if (lsb_appendf(output, "{sym = %s, c = %lu}", sax, (unsigned long) a->c)) return 1;
       free(sax);
       return 0;
     }
   }
+  return 1;
 }
 
 #endif // LUA_SANDBOX
@@ -380,7 +383,7 @@ static const struct luaL_Reg saxlib_f[] =
 static const struct luaL_Reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
-  , { "__tostring", sax_word_to_string }
+  , { "__tostring", sax_to_string }
   , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
@@ -390,11 +393,12 @@ static const struct luaL_Reg saxlib_win[] =
   { "add", sax_add }
   , { "clear", sax_clear }
   , { "__gc", sax_gc_window }
+  , { "__tostring", sax_to_string }
   , { "get_word", sax_window_get_word }
   , { NULL, NULL }
 };
 
-void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
+static void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
 {
   luaL_newmetatable(lua, name);
   lua_pushvalue(lua, -1);
@@ -405,7 +409,7 @@ void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module)
   lua_pop(lua, 1); // Pop table
 }
 
-void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
+static void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
 {
   lua_newtable(lua);
   lua_pushcfunction(lua, module);

@@ -155,6 +155,18 @@ print(window:get_word() == nil)
 
 - Nothing. Just resets the window.
 
+#### __tostring
+```lua
+local win = sax.window.new(4, 2, 4)
+for i=1,4 do win:add(1.5) end
+print(win)
+-- prints CC
+```
+
+*Return*  
+
+- string representing this window in SAX notation, throws error if window is not complete
+
 #### __eq
 ```lua
 local window = sax.window.new(4, 2, 4)

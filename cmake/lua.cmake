@@ -6,9 +6,9 @@
 # For details see the COPYRIGHT file distributed with LuaDist.
 # Please note that the package source code is licensed under its own license.
 
-set ( INSTALL_LMOD ${INSTALL_LIB}/lua
+set ( INSTALL_LMOD ${CMAKE_INSTALL_PREFIX}/lib/lua
       CACHE PATH "Directory to install Lua modules." )
-set ( INSTALL_CMOD ${INSTALL_LIB}/lua
+set ( INSTALL_CMOD ${CMAKE_INSTALL_PREFIX}/lib/lua
       CACHE PATH "Directory to install Lua binary modules." )
 
 option ( SKIP_LUA_WRAPPER

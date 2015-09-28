@@ -1,0 +1,13 @@
+EXPORTS
+sts_new_window
+sts_append_value
+sts_append_array
+sts_from_double_array
+sts_from_sax_string
+sts_word_to_sax_string
+sts_mindist
+sts_free_word
+sts_free_window
+sts_reset_window
+sts_dup_word
+sts_window_is_ready

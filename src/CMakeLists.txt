@@ -3,11 +3,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Build main library
-add_library(symtseries SHARED symtseries.c)
-add_library(symtseries_stat STATIC symtseries.c)
+add_library(symtseries SHARED symtseries.def symtseries.c)
+add_library(symtseries_stat STATIC symtseries.def symtseries.c)
 target_link_libraries(symtseries ${UNIX_LIBRARIES})
 target_link_libraries(symtseries_stat ${UNIX_LIBRARIES})
-install(TARGETS symtseries DESTINATION bin)
+if(NOT LUA_SANDBOX)
+    install(TARGETS symtseries DESTINATION lib)
+endif()
 
 # Build unit tests
 include_directories(test)

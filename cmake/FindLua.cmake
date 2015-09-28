@@ -34,6 +34,7 @@
 
 if (LUA_SANDBOX_INCLUDE) # build against an uninstalled sandbox
     add_definitions(-DLUA_SANDBOX)
+    set(LUA_SANDBOX 1)
     include_directories(${EP_BASE}/include)
     set(LUA_INCLUDE_DIR ${EP_BASE}/include/luasandbox)
     include_directories(${LUA_SANDBOX_INCLUDE})
