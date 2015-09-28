@@ -8,6 +8,6 @@ include(${CMAKE_MODULE_PATH}/dist.cmake)
 add_definitions(-DLUA_COMPAT_MODULE -DDIST_VERSION="0.1.0")
 include(lua)
 
-install_lua_module(sax lua_sax.c LINK symtseries_stat)
+install_lua_module(sax lua_sax.c lua_sax.def LINK symtseries_stat)
 
 add_lua_test(test.lua)

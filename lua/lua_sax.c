@@ -398,7 +398,7 @@ static const struct luaL_Reg saxlib_win[] =
   , { NULL, NULL }
 };
 
-void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
+static void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
 {
   luaL_newmetatable(lua, name);
   lua_pushvalue(lua, -1);
@@ -409,7 +409,7 @@ void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module)
   lua_pop(lua, 1); // Pop table
 }
 
-void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
+static void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
 {
   lua_newtable(lua);
   lua_pushcfunction(lua, module);
