@@ -227,7 +227,7 @@ double find_min(double *arr, size_t size) {
 void dump_session_data(struct session data, size_t *series_sizes, char *prefix) {
     char buf[BUF_SIZE];
     for (size_t trid = 0; trid < data.n_series; ++trid) {
-        snprintf(buf, BUF_SIZE, "plot/%s%zu", prefix, trid + 1);
+        snprintf(buf, BUF_SIZE, "plot/%s%lu", prefix, (unsigned long) trid + 1);
         FILE *out = fopen(buf, "w");
         for (size_t frameid = 0; frameid < series_sizes[trid]; ++frameid) {
             fprintf(out, "%.2f,%lf\n", 
