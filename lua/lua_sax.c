@@ -131,6 +131,7 @@ static void push_word(lua_State* lua, const struct sts_word* a)
 
 static double *check_array(lua_State* lua, int ind, size_t size) 
 {
+  luaL_argcheck(lua, size > 0, ind, "unable to handle empty array");
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
   for (size_t i = 1; i <= size; ++i) {
@@ -158,9 +159,13 @@ static int sax_add(lua_State* lua)
     if (!lua_istable(lua, 2)) 
       luaL_argerror(lua, 2, "number or array-like table expected");
     size_t size = lua_objlen(lua, 2);
-    double *vals = check_array(lua, 2, size);
-    a = sts_append_array(win, vals, size);
-    free(vals);
+    if (size == 0) {
+      a = sts_append_array(win, NULL, 0);
+    } else {
+      double *vals = check_array(lua, 2, size);
+      a = sts_append_array(win, vals, size);
+      free(vals);
+    }
   }
   if (!a) {
     lua_pushboolean(lua, 0);
