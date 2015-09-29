@@ -15,7 +15,6 @@
 #include <stdbool.h>
 
 #ifdef _MSC_VER
-#pragma warning( push )
 // To silence the +INFINITY warning
 #pragma warning( disable : 4056 )
 #pragma warning( disable : 4756 )
@@ -679,9 +678,5 @@ int main() {
 
     return result != 0;
 }
-
-#ifdef _MSC_VER
-#pragma warning( pop )
-#endif
 
 #endif // STS_COMPILE_UNIT_TESTS
