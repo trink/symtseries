@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdbool.h>
 
 #ifdef _MSC_VER
 #pragma warning( push )
