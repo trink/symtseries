@@ -201,9 +201,3 @@ print(a)
 
 #### __eq
 See window.__eq
-
-#### copy()
-
-*Return*  
-
-- copy of mozsvc.sax.word

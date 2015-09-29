@@ -225,15 +225,6 @@ static int sax_equal(lua_State* lua)
   return 1;
 }
 
-static int sax_word_copy(lua_State* lua)
-{
-  luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  sts_word a = check_sax_word(lua, 1);
-  sts_word new_a = sts_dup_word(a);
-  push_word(lua, new_a);
-  return 1;
-}
-
 static int sax_window_get_word(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
@@ -409,7 +400,6 @@ static const struct luaL_Reg saxlib_word[] =
 {
   { "__gc", sax_gc_word }
   , { "__tostring", sax_to_string }
-  , { "copy", sax_word_copy }
   , { NULL, NULL }
 };
 
