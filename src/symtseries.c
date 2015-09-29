@@ -396,8 +396,9 @@ sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, 
 }
 
 sts_word sts_from_sax_string(const char *symbols, size_t c) {
-    if (c < 2 || c > STS_MAX_CARDINALITY) return NULL;
+    if (!symbols || c < 2 || c > STS_MAX_CARDINALITY) return NULL;
     size_t w = strlen(symbols);
+    if (w == 0) return NULL;
     sts_symbol *sts_symbols = malloc(w * sizeof *sts_symbols);
     if (!sts_symbols) return NULL;
     for (size_t i = 0; i < w; ++i) {

@@ -71,7 +71,7 @@ print(a == b)
 
 *OR*  
 
-- s (string) SAX-notation string denoting a word
+- s (string) SAX-notation string denoting a word (must be of length > 1)
 - c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
 
 *Return*  

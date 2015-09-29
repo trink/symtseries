@@ -262,7 +262,9 @@ static int sax_from_double_array(lua_State* lua)
 
 static int sax_from_string(lua_State* lua) 
 {
-  const char *s = luaL_checkstring(lua, 1);
+  size_t len;
+  const char *s = luaL_checklstring(lua, 1, &len);
+  luaL_argcheck(lua, len > 1, 1, "length of SAX string should be > 1");
   int c = luaL_checkint(lua, 2);
   sts_word a = sts_from_sax_string(s, c);
   if (!a) luaL_argerror(lua, 1, 
