@@ -498,7 +498,7 @@ static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
-                "zero encoded into %u for cardinality %lu", zero_encoded, (unsigned long) c);
+                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, c);
     }
     return NULL;
 }
@@ -507,8 +507,9 @@ static char *test_get_symbol_breaks() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         for (unsigned int i = 0; i < c; ++i) {
             sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
-            mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %lu. c == %lu", 
-                    breaks[c-2][i], break_encoded, (unsigned long) c - i - 1, (unsigned long) c);
+            mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %" 
+                    PRIuSIZE ". c == %" PRIuSIZE, 
+                    breaks[c-2][i], break_encoded, c - i - 1, c);
         }
     }
     return NULL;
@@ -526,8 +527,8 @@ static char *test_to_sax_normalization() {
             mu_assert(sax->symbols != NULL, "sax conversion failed");
             mu_assert(normsax->symbols != NULL, "sax conversion failed");
             mu_assert(memcmp(sax->symbols, normsax->symbols, w) == 0, 
-                    "normalized array got encoded differently for w=%lu, c=%lu", 
-                    (unsigned long) w, (unsigned long) c);
+                    "normalized array got encoded differently for w=%" 
+                    PRIuSIZE ", c=%" PRIuSIZE, w, c);
             sts_free_word(sax);
             sts_free_word(normsax);
         }
@@ -582,8 +583,8 @@ static char *test_to_sax_stationary() {
             mu_assert(sax->symbols != NULL, "sax conversion failed");
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax->symbols[i] == (c / 2) - 1 + (c%2),
-                        "#%lu element of stationary sequence encoded into %u", 
-                        (unsigned long) i, sax->symbols[i]);
+                        "#%" PRIuSIZE "element of stationary sequence encoded into %u", 
+                        i, sax->symbols[i]);
             }
             sts_free_word(sax);
         }
@@ -595,7 +596,7 @@ static char *test_to_sax_stationary() {
     for (size_t i = 0; i < 16; ++i) { \
         (word) = sts_append_value((window), seq[i]); \
         mu_assert(((word) == NULL) == (i < 15 ? true : false), \
-            "sts_append_value failed %lu", (unsigned long) i); \
+            "sts_append_value failed %" PRIuSIZE, i); \
     } \
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
     mu_assert((word)->symbols != NULL, "ring buffer failed"); \

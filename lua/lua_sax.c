@@ -315,9 +315,8 @@ static int serialize_sax(lua_State* lua)
       size_t w = win->current_word.w;
       size_t c = win->current_word.c;
       if (lsb_appendf(output,
-            "if %s == nil then %s = sax.window.new(%lu, %lu, %lu) end\n%s:clear()\n%s:add({", 
-            key, key, (unsigned long) n, (unsigned long) w, (unsigned long) c, key, key)) 
-        return 1;
+            "if %s == nil then %s = sax.window.new(%" PRIuSIZE ", %" PRIuSIZE ", %" PRIuSIZE ") end\n%s:clear()\n%s:add({", 
+            key, key, n, w, c, key, key)) return 1;
       double *val = win->values->tail;
       size_t n_values = 0;
       while (val != win->values->head) {
@@ -335,7 +334,7 @@ static int serialize_sax(lua_State* lua)
       if (!sax) luaL_error(lua, "memory allocation failed");
       if (lsb_appendf(output,
             // Even if it was initialized, we can't alter it's state, so just re-construct
-            "%s = sax.word.new(\"%s\", %lu)\n", key, sax, (unsigned long) a->c)) return 1;
+            "%s = sax.word.new(\"%s\", %" PRIuSIZE ")\n", key, sax, a->c)) return 1;
       free(sax);
       return 0;
     }
@@ -359,7 +358,7 @@ static int output_sax(lua_State* lua)
       const struct sts_word *a = check_sax_word(lua, -2);
       char *sax = sts_word_to_sax_string(a);
       if (!sax) luaL_error(lua, "memory allocation failed");
-      if (lsb_appendf(output, "{sym = %s, c = %lu}", sax, (unsigned long) a->c)) return 1;
+      if (lsb_appendf(output, "{sym = %s, c = %" PRIuSIZE "}", sax, a->c)) return 1;
       free(sax);
       return 0;
     }

@@ -15,6 +15,12 @@
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
 
+#ifdef _MSC_VER
+#define PRIuSIZE "Iu"
+#else 
+#define PRIuSIZE "zu"
+#endif
+
 typedef unsigned char sts_symbol;
 
 typedef struct sts_word {
