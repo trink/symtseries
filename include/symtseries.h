@@ -17,9 +17,15 @@
 
 #ifdef _MSC_VER
 #define PRIuSIZE "Iu"
-#else 
+typedef size_t usize;
+#elif _GNUC_
 #define PRIuSIZE "zu"
+typedef size_t usize;
+#else
+#define PRIuSIZE "lu"
+typedef unsigned long usize;
 #endif
+
 
 typedef unsigned char sts_symbol;
 

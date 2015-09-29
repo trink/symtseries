@@ -498,7 +498,7 @@ static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
-                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, c);
+                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, (usize) c);
     }
     return NULL;
 }
@@ -509,7 +509,7 @@ static char *test_get_symbol_breaks() {
             sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %" 
                     PRIuSIZE ". c == %" PRIuSIZE, 
-                    breaks[c-2][i], break_encoded, c - i - 1, c);
+                    breaks[c-2][i], break_encoded, (usize) c - i - 1, (usize) c);
         }
     }
     return NULL;
@@ -528,7 +528,7 @@ static char *test_to_sax_normalization() {
             mu_assert(normsax->symbols != NULL, "sax conversion failed");
             mu_assert(memcmp(sax->symbols, normsax->symbols, w) == 0, 
                     "normalized array got encoded differently for w=%" 
-                    PRIuSIZE ", c=%" PRIuSIZE, w, c);
+                    PRIuSIZE ", c=%" PRIuSIZE, (usize) w, (usize) c);
             sts_free_word(sax);
             sts_free_word(normsax);
         }
@@ -584,7 +584,7 @@ static char *test_to_sax_stationary() {
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax->symbols[i] == (c / 2) - 1 + (c%2),
                         "#%" PRIuSIZE "element of stationary sequence encoded into %u", 
-                        i, sax->symbols[i]);
+                        (usize) i, sax->symbols[i]);
             }
             sts_free_word(sax);
         }
@@ -596,7 +596,7 @@ static char *test_to_sax_stationary() {
     for (size_t i = 0; i < 16; ++i) { \
         (word) = sts_append_value((window), seq[i]); \
         mu_assert(((word) == NULL) == (i < 15 ? true : false), \
-            "sts_append_value failed %" PRIuSIZE, i); \
+            "sts_append_value failed %" PRIuSIZE, (usize) i); \
     } \
     mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
     mu_assert((word)->symbols != NULL, "ring buffer failed"); \
