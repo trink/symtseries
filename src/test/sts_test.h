@@ -14,8 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define snprintf _snprintf
+// To silence MSVC 'unsafe' warning in unittests
+#pragma warning( disable : 4996 )
 #endif
 
 #define mu_assert(cond, ...)                                                   \
