@@ -47,7 +47,7 @@ globally registered and returned by the require function.
 
 *Arguments*  
 
-- n (unsigned) The number of values to keep track of (must be > 1)
+- n (unsigned) The number of values to keep track of (must be > 1 and <= 4096)
 - w (unsigned) The number of frames to split the window into (must be > 1 and a divisor of n)
 - c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)
 
@@ -55,7 +55,7 @@ globally registered and returned by the require function.
 
 - mozsvc.sax.window userdata object.
 
-#### word.new[(v, n, w, c), (s, c)]
+#### word.new[(v, w, c), (s, c)]
 ```lua
 local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local b = sax.word.new("FC", 8)
@@ -65,13 +65,13 @@ print(a == b)
 
 *Arguments*  
 
-- v (table-array) Series to be represented in SAX notation
+- v (table-array) Series to be represented in SAX notation (must be of length > 1 and <= 4096)
 - w (unsigned) The number of frames to split the series into (must be > 1 and a divisor of #v)
 - c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
 
 *OR*  
 
-- s (string) SAX-notation string denoting a word
+- s (string) SAX-notation string denoting a word (must be of length > 1)
 - c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
 
 *Return*  
@@ -165,7 +165,7 @@ print(win)
 
 *Return*  
 
-- string representing this window in SAX notation, throws error if window is not complete
+- string representing the current word in window in SAX notation, in case word is incomplete, prints nil
 
 #### __eq
 ```lua
@@ -201,9 +201,3 @@ print(a)
 
 #### __eq
 See window.__eq
-
-#### copy()
-
-*Return*  
-
-- copy of mozsvc.sax.word

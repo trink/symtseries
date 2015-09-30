@@ -10,13 +10,22 @@
 #define _SYMTSERIES_H_
 #include <float.h>
 #include <stdlib.h>
-
-typedef int bool;
-#define false 0
-#define true 1
+#include <stdbool.h>
 
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
+
+#ifdef _MSC_VER
+#define PRIuSIZE "Iu"
+typedef size_t usize;
+#elif _GNUC_
+#define PRIuSIZE "zu"
+typedef size_t usize;
+#else
+#define PRIuSIZE "lu"
+typedef unsigned long usize;
+#endif
+
 
 typedef unsigned char sts_symbol;
 

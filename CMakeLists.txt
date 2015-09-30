@@ -4,17 +4,20 @@
 
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(symtseries)
+
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Symbolic analysis for time series data")
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 1)
 
 set(CPACK_RPM_PACKAGE_LICENSE "MPLv2.0")
 set(CPACK_STRIP_FILES TRUE)
+set(CPACK_PACKAGE_VENDOR        "Vlad Sterzhanov aka Quadrocube")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
+
 set(CMAKE_SKIP_BUILD_RPATH              FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH      FALSE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
-set(CPACK_PACKAGE_VENDOR        "Vlad Sterzhanov aka Quadrocube")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
 
 if(MSVC)
     # Predefined Macros: http://msdn.microsoft.com/en-us/library/b0084kay.aspx
@@ -41,6 +44,7 @@ else()
     endif()
 endif()
 
+include(CPack)
 include(CTest)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)

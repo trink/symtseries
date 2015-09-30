@@ -49,3 +49,10 @@ b = sax.word.new(values, 2, 4)
 assert(window:get_word() == b, "word vs word __eq failed")
 assert(b == window, "word vs window __eq failed")
 assert(window == b, "word vs window __eq failed")
+
+local window = sax.window.new(4, 2, 4)
+for i=1,5 do assert(window:add({}) == false) end
+window:add({1, 2, 3, 4})
+local a = window:get_word()
+for i=1,5 do assert(window:add({}) == true) end
+assert(a == window)
