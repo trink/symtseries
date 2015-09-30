@@ -346,7 +346,7 @@ static int output_sax(lua_State* lua)
       if (!sts_window_is_ready(window)) {
         return lsb_appends(output, "nil", 3);
       }
-      char *sax = sts_word_to_sax_string(window->current_word);
+      char *sax = sts_word_to_sax_string(&window->current_word);
       if (lsb_appendf(output, "%s^%" PRIuSIZE, sax, (usize) window->current_word.c)) 
         return 1;
       free(sax);
