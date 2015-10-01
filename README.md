@@ -165,7 +165,7 @@ print(win)
 
 *Return*  
 
-- string representing the current word in window in SAX notation, in case word is incomplete, prints nil
+- string representing the current word in window in SAX notation or nil if the word is incomplete
 
 #### __eq
 ```lua
