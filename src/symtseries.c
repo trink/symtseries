@@ -459,6 +459,25 @@ double sts_mindist(const struct sts_word* a, const struct sts_word* b) {
     return distance;
 }
 
+bool sts_words_equal(const struct sts_word* a, const struct sts_word* b) {
+  if (a->w != b->w || a->c != b->c) {
+    return false;
+  }
+  size_t w = a->w;
+  sts_symbol zero = get_symbol(0, a->c);
+  for (size_t i = 0; i < w; ++i) {
+    if (a->symbols[i] != b->symbols[i]) {
+      if ((a->symbols[i] == a->c && b->symbols[i] == zero) 
+       || (b->symbols[i] == b->c && a->symbols[i] == zero)) {
+          // Treat NaN as average
+        continue;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
 bool sts_reset_window(sts_window w) {
     if (w->values == NULL || w->values->buffer == NULL) return false;
     w->values->tail = w->values->head = w->values->buffer;

@@ -106,8 +106,16 @@ char *sts_word_to_sax_string(const struct sts_word *a);
  * method will use other's word n_values for mindist estimation.
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
+ * @note NaN frames are considered to match average frame
  */
 double sts_mindist(const struct sts_word* a, const struct sts_word* b);
+
+/*
+ * Returns whether to words are considered equal in terms of w, c and representation
+ * @param a, b: sax words
+ * @note NaN frames are considered to match average frame
+ */
+bool sts_words_equal(const struct sts_word* a, const struct sts_word* b);
 
 /*
  * Frees allocated memory for sax representation

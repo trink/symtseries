@@ -209,22 +209,7 @@ static int sax_equal(lua_State* lua)
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
   const struct sts_word *a = check_word_or_window(lua, 1);
   const struct sts_word *b = check_word_or_window(lua, 2);
-  if (a->w != b->w || a->c != b->c) {
-    lua_pushboolean(lua, 0);
-    return 1;
-  }
-  size_t w = a->w;
-  for (size_t i = 0; i < w; ++i) {
-    if (a->symbols[i] != b->symbols[i]) {
-      if (a->symbols[i] == a->c || b->symbols[i] == b->c) {
-        // Frame with no data at all, potentially could match anything
-        continue;
-      }
-      lua_pushboolean(lua, 0);
-      return 1;
-    }
-  }
-  lua_pushboolean(lua, 1);
+  lua_pushboolean(lua, sts_words_equal(a, b));
   return 1;
 }
 
