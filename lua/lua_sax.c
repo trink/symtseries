@@ -216,6 +216,10 @@ static int sax_equal(lua_State* lua)
   size_t w = a->w;
   for (size_t i = 0; i < w; ++i) {
     if (a->symbols[i] != b->symbols[i]) {
+      if (a->symbols[i] == a->c || b->symbols[i] == b->c) {
+        // Frame with no data at all, potentially could match anything
+        continue;
+      }
       lua_pushboolean(lua, 0);
       return 1;
     }

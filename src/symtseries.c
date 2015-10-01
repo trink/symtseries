@@ -401,8 +401,12 @@ sts_word sts_from_sax_string(const char *symbols, size_t c) {
     sts_symbol *sts_symbols = malloc(w * sizeof *sts_symbols);
     if (!sts_symbols) return NULL;
     for (size_t i = 0; i < w; ++i) {
-        if (symbols[i] < 'A' || symbols[i] >= (char) ('A' + c)) return NULL;
-        sts_symbols[i] = c - (symbols[i] - 'A') - 1;
+        if (symbols[i] == '#') {
+            sts_symbols[i] = c;
+        } else {
+            if (symbols[i] < 'A' || symbols[i] >= (char) ('A' + c)) return NULL;
+            sts_symbols[i] = c - (symbols[i] - 'A') - 1;
+        }
     }
     return new_word(0, w, c, sts_symbols);
 }
@@ -418,7 +422,12 @@ char *sts_word_to_sax_string(const struct sts_word *a) {
             free(str);
             return NULL;
         }
-        str[i] = a->c - a->symbols[i] - 1 + 'A';
+        if (dig == a->c) {
+            // All-NaN frame
+            str[i] = '#'; // Not to mix with valid SAX symbols
+        } else {
+            str[i] = a->c - a->symbols[i] - 1 + 'A';
+        }
     }
     return str;
 }
