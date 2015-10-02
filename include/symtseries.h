@@ -18,12 +18,9 @@
 #if defined(_MSC_VER)
 #define PRIuSIZE "Iu"
 typedef size_t usize;
-#elif defined(__GNUC__) || defined(__MINGW32__)
+#else
 #define PRIuSIZE "zu"
 typedef size_t usize;
-#else
-#define PRIuSIZE "lu"
-typedef unsigned long usize;
 #endif
 
 
