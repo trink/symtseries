@@ -10,6 +10,7 @@
 #include <lauxlib.h>
 #include <math.h>
 #include <symtseries.h>
+#include <string.h>
 
 #ifdef LUA_SANDBOX
 #include "luasandbox_output.h"
@@ -330,7 +331,7 @@ static int output_sax(lua_State* lua)
   if (!a) {
     return lsb_appends(output, "nil", 3);
   }
-  char *sax = sts_word_to_sax_string(window->current_word);
+  char *sax = sts_word_to_sax_string(a);
   if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
   if (lsb_appends(output, sax, strlen(sax))) {
     return 1;
