@@ -262,6 +262,13 @@ static int sax_clear(lua_State* lua)
 
 #ifdef LUA_SANDBOX
 
+static bool all_nans(double *array, size_t size) {
+  for (size_t i = 0; i < size; ++i) {
+    if (!isnan(array[i])) return false;
+  }
+  return true;
+}
+
 static int serialize_sax(lua_State* lua)
 {
   lsb_output_data *output = lua_touserdata(lua, -1);
@@ -277,16 +284,29 @@ static int serialize_sax(lua_State* lua)
       size_t c = win->current_word.c;
       if (lsb_appendf(output,
             "if %s == nil then %s = sax.window.new(%" PRIuSIZE ", %" PRIuSIZE 
-            ", %" PRIuSIZE ") end\n%s:clear()\n%s:add({", 
-            key, key, n, w, c, key, key)) return 1;
-      double *val = win->values->tail;
-      size_t n_values = 0;
-      while (val != win->values->head) {
-        if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
-        if (lsb_serialize_double(output, *val)) return 1;
-        if (++val == win->values->buffer_end) val = win->values->buffer;
+            ", %" PRIuSIZE ") end\n", 
+            key, key, n, w, c)) return 1;
+      if (!all_nans(win->values->buffer, win->current_word.n_values + 1)) {
+        if (lsb_appendf(output, "%s:clear()\n%s:add({", key, key)) return 1;
+        double *val = win->values->tail;
+        size_t n_values = 0;
+        while (val != win->values->head) {
+          if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
+          if (isnan(*val)) {
+            if (lsb_appends(output, "0/0", 3)) return 1;
+          } else if (!isfinite(*val)) {
+            if (*val > 0) {
+              if (lsb_appends(output, "1/0", 3)) return 1;
+            } else {
+              if (lsb_appends(output, "-1/0", 4)) return 1;
+            }
+          } else {
+            if (lsb_serialize_double(output, *val)) return 1;
+          }
+          if (++val == win->values->buffer_end) val = win->values->buffer;
+        }
+        if (lsb_appends(output, "})\n", 3)) return 1;
       }
-      if (lsb_appends(output, "})\n", 3)) return 1;
       return 0;
     }
     case SAX_WORD:

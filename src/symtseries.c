@@ -549,6 +549,9 @@ bool sts_reset_window(sts_window w) {
     w->values->mu = 0;
     w->values->s2 = 0;
     w->values->finite_cnt = 0;
+    for (size_t i = 0; i <= w->current_word.n_values; ++i) {
+        w->values->buffer[i] = NAN;
+    }
     for (size_t i = 0; i < w->current_word.w; ++i) {
         w->current_word.symbols[i] = w->current_word.c;
     }
