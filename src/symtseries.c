@@ -233,58 +233,37 @@ dist_table[STS_MAX_CARDINALITY - 1][STS_MAX_CARDINALITY + 1][STS_MAX_CARDINALITY
 
 static sts_symbol get_symbol(double value, unsigned int c) {
     if (isnan(value)) return c;
+    if (value == -INFINITY) return c - 1;
     for (unsigned int i = 0; i < c; ++i) {
-        if (value >= breaks[c-2][i]
+        if (value > breaks[c-2][i] - STS_STAT_EPS
             &&
-            value < breaks[c-2][i+1]) {
+            value <= breaks[c-2][i+1] - STS_STAT_EPS) {
             return c - i - 1;
         }
     }
     return 0;
 }
 
-static void normalize(const double *series_begin, size_t n_values, const double *series_end, 
-        const double *buffer_start, const double *buffer_break, double *out) {
-    if (series_end == NULL) series_end = series_begin + n_values;
-    size_t actual_n_values = n_values;
-    size_t i = 0;
-    const double *value = series_begin;
-
-    // Copy elements from buffer into *out
-    while (value != series_end) {
-        out[i++] = *value;
-        if (++value == buffer_break) value = buffer_start;
-    }
-
-    double mu = 0, std = 0;
-    // Estimate mean
-    for (i = 0; i < n_values; ++i) {
-        if (!isfinite(out[i])) {
-            --actual_n_values;
-        } else {
-            mu += out[i];
+// On-line estimation for better precision
+static void estimate_mu_and_std
+(const double *series, size_t n_values, double *mu, double *std) {
+    double mean = 0;
+    double s2 = 0;
+    size_t n = 0;
+    for (size_t i = 0; i < n_values; ++i) {
+        double value = series[i];
+        if (isfinite(value)) {
+            ++n;
+            s2 += ((value - mean) * (value - mean) * (n - 1)) / n;
+            mean += (value - mean) / n;
         }
     }
-    mu /= actual_n_values > 0 ? actual_n_values : 1;
-
-    // Estimate variance
-    for (i = 0; i < n_values; ++i) {
-        if (!isfinite(out[i])) continue;
-        std += (mu - out[i]) * (mu - out[i]);
-    }
-    std /= actual_n_values > 0 ? actual_n_values : 1;
-    std = sqrt(std);
-
-    // Scale *out
-    if (std < STS_STAT_EPS && actual_n_values != 0) {
-        // to prevent infinite-scaling for almost-stationary sequencies
-        memset(out, 0, n_values * sizeof *out);
+    if (n == 0) {
+        *mu = 0;
+        *std = 0;
     } else {
-        for (i = 0; i < n_values; ++i) {
-            if (isfinite(out[i])) {
-                out[i] = (out[i] - mu) / std;
-            }
-        }
+        *mu = mean;
+        *std = sqrt(s2 / n);
     }
 }
 
@@ -295,8 +274,6 @@ static sts_window new_window(size_t n, size_t w, short c, struct sts_ring_buffer
     window->current_word.c = c;
     window->current_word.symbols = malloc(w * sizeof *window->current_word.symbols);
     if (window->current_word.symbols == NULL) return NULL;
-    window->norm_buffer = malloc(n * sizeof *window->norm_buffer);
-    if (window->norm_buffer == NULL) return NULL;
     window->values = values;
     return window;
 }
@@ -315,17 +292,31 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c) {
     }
     values->buffer_end = values->buffer + n + 1;
     values->head = values->tail = values->buffer;
+    values->mu = 0;
+    values->s2 = 0;
+    values->finite_cnt = 0;
     return new_window(n, w, c, values);
 }
 
-static void rb_push(struct sts_ring_buffer* rb, double value)
+/*
+ * Apend to circular buffer, updates cnt and finite_cnt
+ */
+static double rb_push(struct sts_ring_buffer* rb, double value)
 {
+    double prev_tail = 0;
+    if (isfinite(value)) {
+        ++rb->finite_cnt;
+    }
     *rb->head = value;
     ++rb->head;
     if (rb->head == rb->buffer_end)
         rb->head = rb->buffer;
 
     if (rb->head == rb->tail) {
+        prev_tail = *rb->tail;
+        if (isfinite(*rb->tail)) {
+            --rb->finite_cnt;
+        }
         if ((rb->tail + 1) == rb->buffer_end)
             rb->tail = rb->buffer;
         else
@@ -333,26 +324,43 @@ static void rb_push(struct sts_ring_buffer* rb, double value)
     } else {
         ++rb->cnt;
     }
+    return prev_tail;
 }
 
-static void apply_sax_transform(size_t n, size_t w, unsigned int c, sts_symbol *out, 
-        double *series) {
+/*
+ * Given code params, mu and std of series + buffer where that series lies
+ * writes SAX-representation of the series into *out
+ */
+
+static void apply_sax_transform
+(size_t n, size_t w, unsigned int c, double mu, double std, 
+ sts_symbol *out, 
+ const double *series_begin, const double *buffer_start, const double *buffer_break) 
+{
     unsigned int frame_size = n / w;
+    const double *val = series_begin;
     for (unsigned int i = 0; i < w; ++i) {
         double average = 0;
         unsigned int current_frame_size = frame_size;
-        for (size_t j = i * frame_size; j < (i+1) * frame_size; ++j) {
-            if (isnan(series[j])) {
+        for (size_t j = 0; j < frame_size; ++j) {
+            if (isnan(*val)) {
                 --current_frame_size;
-                continue;
+            } else {
+                average += *val;
             }
-            average += series[j];
+            if (++val == buffer_break) val = buffer_start;
         } 
         if (current_frame_size == 0 || isnan(average)) {
             // All NaNs or (-INF + INF)
             average = NAN;
         } else {
-            average /= current_frame_size;
+            if (isfinite(average)) {
+                if (std < STS_STAT_EPS) {
+                    average = 0;
+                } else {
+                    average = (average - (current_frame_size * mu)) / (current_frame_size * std);
+                }
+            }
         }
         out[i] = get_symbol(average, c);
     }
@@ -367,20 +375,74 @@ static sts_word new_word(size_t n, size_t w, short c, sts_symbol *symbols) {
     return new;
 }
 
+static double get_window_std(sts_window window) {
+    return window->values->finite_cnt == 0  
+        ? 0  
+        : sqrt(window->values->s2 / window->values->finite_cnt);
+}
+
 static sts_word update_current_word(sts_window window) {
     if (!sts_window_is_ready(window)) return NULL;
-    normalize(window->values->tail, window->current_word.n_values, window->values->head, 
-            window->values->buffer, window->values->buffer_end, window->norm_buffer);
     apply_sax_transform(window->current_word.n_values, window->current_word.w, 
-            window->current_word.c, window->current_word.symbols, window->norm_buffer);
+            window->current_word.c, window->values->mu, get_window_std(window), 
+            window->current_word.symbols, 
+            window->values->tail, window->values->buffer, window->values->buffer_end);
     return &window->current_word;
+}
+
+/*
+ * Appends value, updates mu and s2 in on-line fashion, but doesn't update word itself
+ */
+static void append_value(sts_window window, double value) {
+    size_t prev_finite = window->values->finite_cnt;
+    double tail = rb_push(window->values, value);
+    size_t new_finite = window->values->finite_cnt;
+    // Update mu and s2
+    if (prev_finite == new_finite) {
+        // either 
+        // 1) added finite and removed finite from tail or 
+        // 2) added non-finite and removed non-finite or 
+        // 3) added non-finite on an empty place
+        // update only in case 1 (size remained the same)
+        if (isfinite(value)) {
+            double diff = value - tail;
+            window->values->mu += diff / prev_finite;
+            double a = value - window->values->mu;
+            double b = tail - window->values->mu;
+            window->values->s2 += diff * diff / new_finite + a * a - b * b;
+        } 
+    } else if (new_finite < prev_finite) {
+        // added non-finite in place of finite (size decreased)
+        if (new_finite == 0) {
+            window->values->mu = 0;
+            window->values->s2 = 0;
+        } else {
+            double prev_mu = window->values->mu;
+            window->values->mu = (prev_mu * prev_finite - tail) / new_finite; 
+            double old_diff = prev_mu - tail;
+            double new_diff = window->values->mu - tail;
+            window->values->s2 += ((old_diff * old_diff * prev_finite) 
+                    / (new_finite * new_finite)) - new_diff * new_diff;
+        }
+    } else {
+        // added new finite either on the empty place
+        // or in place of non-finite tail
+        // size increased in any case -> update
+        window->values->s2 += ((value - window->values->mu) * (value - window->values->mu) 
+                * prev_finite) / new_finite;
+        window->values->mu += (value - window->values->mu) / new_finite;
+    }
+    if (window->values->s2 < 0 && window->values->s2 > - STS_STAT_EPS) {
+        // to fight sqrt(-0)
+        window->values->s2 = 0;
+    }
 }
 
 const struct sts_word* sts_append_value(sts_window window, double value) {
     if (window == NULL || window->values == NULL || window->values->buffer == NULL ||
             window->current_word.c < 2 || window->current_word.c > STS_MAX_CARDINALITY)
         return NULL;
-    rb_push(window->values, value);
+    append_value(window, value);
     return update_current_word(window);
 }
 
@@ -391,7 +453,7 @@ const struct sts_word* sts_append_array(sts_window window, const double *values,
     size_t start = 
         n_values > window->current_word.n_values ? n_values - window->current_word.n_values : 0;
     for (size_t i = start; i < n_values; ++i) {
-        rb_push(window->values, values[i]);
+        append_value(window, values[i]);
     }
     return update_current_word(window);
 }
@@ -400,13 +462,11 @@ sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, 
     if (n_values % w != 0 || c > STS_MAX_CARDINALITY || c < 2 || series == NULL) {
         return NULL;
     }
-    double *norm_series = malloc(n_values * sizeof *norm_series);
-    if (!norm_series) return NULL;
-    normalize(series, n_values, NULL, NULL, NULL, norm_series);
+    double mu, sigma;
+    estimate_mu_and_std(series, n_values, &mu, &sigma);
     sts_symbol *symbols =  malloc(w * sizeof *symbols);
     if (!symbols) return NULL;
-    apply_sax_transform(n_values, w, c, symbols, norm_series);
-    free(norm_series);
+    apply_sax_transform(n_values, w, c, mu, sigma, symbols, series, NULL, NULL);
     return new_word(n_values, w, c, symbols);
 }
 
@@ -484,6 +544,9 @@ bool sts_reset_window(sts_window w) {
     if (!w || w->values == NULL || w->values->buffer == NULL) return false;
     w->values->tail = w->values->head = w->values->buffer;
     w->values->cnt = 0;
+    w->values->mu = 0;
+    w->values->s2 = 0;
+    w->values->finite_cnt = 0;
     return true;
 }
 
@@ -495,8 +558,6 @@ void sts_free_window(sts_window w) {
     }
     if (w->current_word.symbols != NULL)
         free(w->current_word.symbols);
-    if (w->norm_buffer != NULL)
-        free(w->norm_buffer);
     free(w);
 }
 
@@ -544,28 +605,6 @@ static char *test_get_symbol_breaks() {
                     breaks[c-2][i], break_encoded, (usize) c - i - 1, (usize) c);
         }
     }
-    return NULL;
-}
-
-static char *test_to_sax_normalization() {
-    double seq[16] = {-4, -3, -2, -1, 0, 1, 2, 3, -4, -3, -2, -1, 0, 1, 2, 3};
-    double *normseq = malloc(16 * sizeof *normseq);
-    normalize(seq, 16, NULL, NULL, NULL, normseq);
-    mu_assert(normseq != NULL, "normalize failed");
-    for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
-        for (size_t w = 1; w <= 16; w *= 2) {
-            sts_word sax = sts_from_double_array(seq, 16, w, c), 
-                     normsax = sts_from_double_array(normseq, 16, w, c);
-            mu_assert(sax->symbols != NULL, "sax conversion failed");
-            mu_assert(normsax->symbols != NULL, "sax conversion failed");
-            mu_assert(memcmp(sax->symbols, normsax->symbols, w) == 0, 
-                    "normalized array got encoded differently for w=%" 
-                    PRIuSIZE ", c=%" PRIuSIZE, (usize) w, (usize) c);
-            sts_free_word(sax);
-            sts_free_word(normsax);
-        }
-    }
-    free(normseq);
     return NULL;
 }
 
@@ -673,6 +712,72 @@ static char *test_sliding_word() {
     return NULL;
 }
 
+static bool isclose(double a, double b) {
+    return fabs(a - b) < STS_STAT_EPS;
+}
+
+void swap(size_t *a, size_t *b) {
+    size_t c = *a;
+    *a = *b;
+    *b = c;
+}
+
+#include <time.h>
+#include <stdlib.h>
+#define STS_TEST_BUF_SIZE 1000
+static char *online_mu_sigma_random_test() {
+    size_t n_runs = 250;
+    double buf[STS_TEST_BUF_SIZE];
+    srand(time(NULL));
+    sts_window win;
+    size_t n_values = 32;
+    size_t prev_fin, new_fin;
+    size_t w = 8;
+    size_t c = 6;
+    for (size_t i = 0; i < n_runs; ++i) {
+        for (size_t j = 0; j < STS_TEST_BUF_SIZE; ++j) {
+            buf[j] = (float)rand()/(float)(RAND_MAX/10.0);
+            int r = rand() % 15;
+            if (r == 0) buf[j] = NAN;
+            else if (r == 1) buf[j] = INFINITY;
+            else if (r == 2) buf[j] = -INFINITY;
+        }
+        for (size_t offset = 0; offset < STS_TEST_BUF_SIZE - n_values - 1; ++offset) {
+            if (offset == 0) {
+                win = sts_new_window(n_values, w, c);
+                sts_append_array(win, buf, n_values);
+                prev_fin = win->values->finite_cnt;
+                new_fin = win->values->finite_cnt;
+            } else {
+                sts_append_value(win, buf[n_values + offset - 1]);
+                new_fin = win->values->finite_cnt;
+            }
+            mu_assert(sts_window_is_ready(win), "append_array failed");
+            double mu, std;
+            estimate_mu_and_std(buf + offset, n_values, &mu, &std);
+            double winmu = win->values->mu; 
+            double winstd = get_window_std(win);
+            if (!isclose(mu, winmu) || 
+                !isclose(std, winstd)) {
+                printf("%zu, %zu, %zu\n", w, c, offset);
+                printf("window.mu = %lf, window.std = %lf, window.s2 = %lf\n", 
+                        winmu, winstd, win->values->s2);
+                printf("actual.mu = %lf, actual.std = %lf\n", mu, std);
+                printf("prev_fin = %zu, new_fin = %zu\n", prev_fin, new_fin);
+                for (size_t printid = 0; printid < offset + n_values; ++printid) {
+                    printf("%f, ", buf[printid]);
+                }
+                printf("\n");
+                mu_assert(0, "sigma and mu are sufficiently different between " 
+                        "word and window estimations");
+            }
+            swap(&prev_fin, &new_fin);
+        }
+        sts_free_window(win);
+    }
+    return NULL;
+}
+
 static char *test_nan_and_infinity_in_series() {
     // NaN frames are converted into special symbol and treated accordingly afterwards
     // OTOH, if the frame isn't all-NaN, they are ignored not to mess up the whole frame
@@ -692,11 +797,11 @@ static char *test_nan_and_infinity_in_series() {
 static char* all_tests() {
     mu_run_test(test_get_symbol_zero);
     mu_run_test(test_get_symbol_breaks);
-    mu_run_test(test_to_sax_normalization);
     mu_run_test(test_to_sax_sample);
     mu_run_test(test_to_sax_stationary);
     mu_run_test(test_nan_and_infinity_in_series);
     mu_run_test(test_sliding_word);
+    mu_run_test(online_mu_sigma_random_test);
     return NULL;
 }
 
