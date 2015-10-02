@@ -17,10 +17,8 @@
 
 #if defined(_MSC_VER)
 #define PRIuSIZE "Iu"
-typedef size_t usize;
 #else
 #define PRIuSIZE "zu"
-typedef size_t usize;
 #endif
 
 

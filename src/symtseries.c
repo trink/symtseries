@@ -591,7 +591,7 @@ static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
-                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, (usize) c);
+                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, c);
     }
     return NULL;
 }
@@ -602,7 +602,7 @@ static char *test_get_symbol_breaks() {
             sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %" 
                     PRIuSIZE ". c == %" PRIuSIZE, 
-                    breaks[c-2][i], break_encoded, (usize) c - i - 1, (usize) c);
+                    breaks[c-2][i], break_encoded, c - i - 1, c);
         }
     }
     return NULL;
@@ -655,7 +655,7 @@ static char *test_to_sax_stationary() {
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax->symbols[i] == (c / 2) - 1 + (c%2),
                         "#%" PRIuSIZE "element of stationary sequence encoded into %u", 
-                        (usize) i, sax->symbols[i]);
+                        i, sax->symbols[i]);
             }
             sts_free_word(sax);
         }
@@ -667,7 +667,7 @@ static char *test_to_sax_stationary() {
     for (size_t i = 0; i < 16; ++i) { \
         (word) = sts_append_value((window), seq[i]); \
         mu_assert((word) != NULL, \
-            "sts_append_value failed %" PRIuSIZE, (usize) i); \
+            "sts_append_value failed %" PRIuSIZE, i); \
     } \
     mu_assert((window)->values->finite_cnt == 16, "ring buffer failed"); \
     mu_assert((word)->symbols != NULL, "ring buffer failed"); \

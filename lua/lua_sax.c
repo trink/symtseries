@@ -278,7 +278,7 @@ static int serialize_sax(lua_State* lua)
       if (lsb_appendf(output,
             "if %s == nil then %s = sax.window.new(%" PRIuSIZE ", %" PRIuSIZE 
             ", %" PRIuSIZE ") end\n%s:clear()\n%s:add({", 
-            key, key, (usize) n, (usize) w, (usize) c, key, key)) return 1;
+            key, key, n, w, c, key, key)) return 1;
       double *val = win->values->tail;
       size_t n_values = 0;
       while (val != win->values->head) {
@@ -296,7 +296,7 @@ static int serialize_sax(lua_State* lua)
       if (!sax) luaL_error(lua, "memory allocation failed");
       if (lsb_appendf(output,
             "if %s == nil then %s = sax.word.new(\"%s\", %" PRIuSIZE ") end\n", 
-            key, key, sax, (usize) a->c)) return 1;
+            key, key, sax, a->c)) return 1;
       free(sax);
       return 0;
     }
