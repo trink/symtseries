@@ -65,7 +65,7 @@ static sax_type sax_gettype(lua_State* lua, int ind)
   return SAX_WORD; // to silence the warning; unreachable due to longjmp
 }
 
-static const struct sts_word *get_word_or_window(lua_State* lua, int ind)
+static const struct sts_word *check_word_or_window(lua_State* lua, int ind)
 {
   sax_type type = sax_gettype(lua, ind);
   void *ud = lua_touserdata(lua, ind);
@@ -73,19 +73,8 @@ static const struct sts_word *get_word_or_window(lua_State* lua, int ind)
     return *((sts_word *) ud);
   } else {
     sts_window window = *((struct sts_window **) ud);
-    if (!sts_window_is_ready(window)) {
-      return NULL;
-    }
     return &window->current_word;
   }
-}
-
-static const struct sts_word *check_word_or_window(lua_State* lua, int ind) 
-{
-  const struct sts_word *a = get_word_or_window(lua, ind);
-  if (!a) luaL_argerror(lua, ind, 
-      "sax.window detected but it has not enough values to construct a word");
-  return a;
 }
 
 static sts_window check_sax_window(lua_State* lua, int ind)
@@ -160,7 +149,7 @@ static int sax_add(lua_State* lua)
       luaL_argerror(lua, 2, "number or array-like table expected");
     size_t size = lua_objlen(lua, 2);
     if (size == 0) {
-      a = sts_window_is_ready(win) ? &win->current_word : NULL;
+      a = &win->current_word;
     } else {
       double *vals = check_array(lua, 2, size);
       a = sts_append_array(win, vals, size);
@@ -193,11 +182,7 @@ static int sax_mindist(lua_State* lua)
 static int sax_to_string(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
-  const struct sts_word *a = get_word_or_window(lua, 1);
-  if (!a) {
-    lua_pushstring(lua, "nil");
-    return 1;
-  }
+  const struct sts_word *a = check_word_or_window(lua, 1);
   char *str = sts_word_to_sax_string(a);
   if (!str) luaL_argerror(lua, 1, "unprocessable symbols for cardinality detected");
   lua_pushstring(lua, str);
@@ -218,11 +203,7 @@ static int sax_window_get_word(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
   sts_window window = check_sax_window(lua, 1);
-  if (!sts_window_is_ready(window)) {
-    lua_pushnil(lua);
-  } else {
-    push_word(lua, sts_dup_word(&window->current_word));
-  }
+  push_word(lua, sts_dup_word(&window->current_word));
   return 1;
 }
 
@@ -327,10 +308,7 @@ static int output_sax(lua_State* lua)
 {
   lsb_output_data *output = lua_touserdata(lua, -1);
   if (!output) return 1;
-  const struct sts_word *a = get_word_or_window(lua, -2);
-  if (!a) {
-    return lsb_appends(output, "nil", 3);
-  }
+  const struct sts_word *a = check_word_or_window(lua, -2);
   char *sax = sts_word_to_sax_string(a);
   if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
   if (lsb_appends(output, sax, strlen(sax))) {
