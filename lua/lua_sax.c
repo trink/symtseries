@@ -325,32 +325,18 @@ static int serialize_sax(lua_State* lua)
 static int output_sax(lua_State* lua)
 {
   lsb_output_data *output = lua_touserdata(lua, -1);
-  sax_type type = sax_gettype(lua, -2);
   if (!output) return 1;
-  switch (type) {
-    case SAX_WINDOW:
-    {
-      const struct sts_window *window = check_sax_window(lua, -2);
-      if (!sts_window_is_ready(window)) {
-        return lsb_appends(output, "nil", 3);
-      }
-      char *sax = sts_word_to_sax_string(window->current_word);
-      if (lsb_appendf(output, "%s^%" PRIuSIZE, sax, (usize) window->current_word.c)) 
-        return 1;
-      free(sax);
-      return 0;
-    }
-    case SAX_WORD:
-    {
-      const struct sts_word *a = check_sax_word(lua, -2);
-      char *sax = sts_word_to_sax_string(a);
-      if (!sax) luaL_error(lua, "memory allocation failed");
-      if (lsb_appendf(output, "%s^%" PRIuSIZE, sax, (usize) a->c)) return 1;
-      free(sax);
-      return 0;
-    }
+  const struct sts_word *a = get_word_or_window(lua, -2);
+  if (!a) {
+    return lsb_appends(output, "nil", 3);
   }
-  return 1;
+  char *sax = sts_word_to_sax_string(window->current_word);
+  if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
+  if (lsb_appends(output, sax, strlen(sax))) {
+    return 1;
+  }
+  free(sax);
+  return 0;
 }
 
 #endif // LUA_SANDBOX
