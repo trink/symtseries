@@ -85,7 +85,7 @@ local values = {-9, -8, -7, -5, -5, 7.2}
 local b = sax.window.new(#values, 2, 8)
 for i=1,#values do b:add(values[i]) end
 local d = sax.mindist(a, b)
--- d == 1.5676734353812
+-- d == 1.560325
 ```
 
 *Arguments*  
@@ -165,7 +165,7 @@ print(win)
 
 *Return*  
 
-- string representing the current word in window in SAX notation, in case word is incomplete, prints nil
+- string representing the current word in window in SAX notation or nil if the word is incomplete
 
 #### __eq
 ```lua

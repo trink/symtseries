@@ -131,7 +131,6 @@ static void push_word(lua_State* lua, const struct sts_word* a)
 
 static double *check_array(lua_State* lua, int ind, size_t size) 
 {
-  luaL_argcheck(lua, size > 0, ind, "unable to handle empty array");
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
   for (size_t i = 1; i <= size; ++i) {
@@ -160,7 +159,7 @@ static int sax_add(lua_State* lua)
       luaL_argerror(lua, 2, "number or array-like table expected");
     size_t size = lua_objlen(lua, 2);
     if (size == 0) {
-      a = sts_append_array(win, NULL, 0);
+      a = sts_window_is_ready(win) ? &win->current_word : NULL;
     } else {
       double *vals = check_array(lua, 2, size);
       a = sts_append_array(win, vals, size);
@@ -210,18 +209,7 @@ static int sax_equal(lua_State* lua)
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
   const struct sts_word *a = check_word_or_window(lua, 1);
   const struct sts_word *b = check_word_or_window(lua, 2);
-  if (a->w != b->w || a->c != b->c) {
-    lua_pushboolean(lua, 0);
-    return 1;
-  }
-  size_t w = a->w;
-  for (size_t i = 0; i < w; ++i) {
-    if (a->symbols[i] != b->symbols[i]) {
-      lua_pushboolean(lua, 0);
-      return 1;
-    }
-  }
-  lua_pushboolean(lua, 1);
+  lua_pushboolean(lua, sts_words_equal(a, b));
   return 1;
 }
 
@@ -337,32 +325,18 @@ static int serialize_sax(lua_State* lua)
 static int output_sax(lua_State* lua)
 {
   lsb_output_data *output = lua_touserdata(lua, -1);
-  sax_type type = sax_gettype(lua, -2);
   if (!output) return 1;
-  switch (type) {
-    case SAX_WINDOW:
-    {
-      const struct sts_window *window = check_sax_window(lua, -2);
-      if (!sts_window_is_ready(window)) {
-        return lsb_appends(output, "nil", 3);
-      }
-      char *sax = sts_word_to_sax_string(&window->current_word);
-      if (lsb_appendf(output, "%s^%" PRIuSIZE, sax, (usize) window->current_word.c)) 
-        return 1;
-      free(sax);
-      return 0;
-    }
-    case SAX_WORD:
-    {
-      const struct sts_word *a = check_sax_word(lua, -2);
-      char *sax = sts_word_to_sax_string(a);
-      if (!sax) luaL_error(lua, "memory allocation failed");
-      if (lsb_appendf(output, "%s^%" PRIuSIZE, sax, (usize) a->c)) return 1;
-      free(sax);
-      return 0;
-    }
+  const struct sts_word *a = get_word_or_window(lua, -2);
+  if (!a) {
+    return lsb_appends(output, "nil", 3);
   }
-  return 1;
+  char *sax = sts_word_to_sax_string(window->current_word);
+  if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
+  if (lsb_appends(output, sax, strlen(sax))) {
+    return 1;
+  }
+  free(sax);
+  return 0;
 }
 
 #endif // LUA_SANDBOX

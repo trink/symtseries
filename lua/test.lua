@@ -12,7 +12,7 @@ local values = {-9, -8, -7, -5, -5, 7.2}
 local b = sax.window.new(#values, 2, 8)
 for i=1,#values do b:add(values[i]) end
 local d = sax.mindist(a, b)
-local expected = 1.5676734353812
+local expected = 1.560325
 assert(math.abs(expected - d) < 1e-5, string.format("Expected mindist %f, got %f", expected, d))
 
 
