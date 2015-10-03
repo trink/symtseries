@@ -19,9 +19,8 @@ assert(math.abs(expected - d) < 1e-5, string.format("Expected mindist %f, got %f
 local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 local a = sax.word.new(values, 2, 4)
-local expected = {false, false, false, true}
 
-for i=1,4 do assert(window:add(values[i]) == expected[i], "window:add failed") end
+for i=1,4 do assert(window:add(values[i]) == true, "window:add failed") end
 
 assert(a == window, "__eq word vs window failed")
 assert(window:add({-10, 1, 2, 3, 10.1}), "more-than-n-append failed")
@@ -34,9 +33,7 @@ local values = {1, 2, 3, 10.1}
 for i=1,4 do window:add(values[i]) end
 
 window:clear()
-assert(window:add(1.3) == false, "Append to freshly-cleared word should return false")
-assert(window:get_word() == nil, "window:clear should trash the active word")
-
+assert(window == sax.word.new("##", 4))
 
 local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
@@ -51,8 +48,13 @@ assert(b == window, "word vs window __eq failed")
 assert(window == b, "word vs window __eq failed")
 
 local window = sax.window.new(4, 2, 4)
-for i=1,5 do assert(window:add({}) == false) end
+for i=1,5 do 
+    window:add({}) 
+    assert(window == sax.word.new("##", 4))
+end
 window:add({1, 2, 3, 4})
 local a = window:get_word()
-for i=1,5 do assert(window:add({}) == true) end
-assert(a == window)
+for i=1,5 do 
+    window:add({})
+    assert(a == window)
+end

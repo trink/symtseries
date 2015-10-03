@@ -274,6 +274,9 @@ static sts_window new_window(size_t n, size_t w, short c, struct sts_ring_buffer
     window->current_word.c = c;
     window->current_word.symbols = malloc(w * sizeof *window->current_word.symbols);
     if (window->current_word.symbols == NULL) return NULL;
+    for (size_t i = 0; i < w; ++i) {
+        window->current_word.symbols[i] = c;
+    }
     window->values = values;
     return window;
 }
@@ -284,11 +287,13 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c) {
     }
     struct sts_ring_buffer *values = malloc(sizeof *values);
     if (!values) return NULL;
-    values->cnt=0;
     values->buffer = malloc((n + 1) * sizeof *values->buffer);
     if (!values->buffer) {
         free(values);
         return NULL;
+    }
+    for (size_t i = 0; i <= n; ++i) {
+        values->buffer[i] = NAN;
     }
     values->buffer_end = values->buffer + n + 1;
     values->head = values->tail = values->buffer;
@@ -299,7 +304,7 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c) {
 }
 
 /*
- * Apend to circular buffer, updates cnt and finite_cnt
+ * Apend to circular buffer, updates finite_cnt
  */
 static double rb_push(struct sts_ring_buffer* rb, double value)
 {
@@ -321,9 +326,8 @@ static double rb_push(struct sts_ring_buffer* rb, double value)
             rb->tail = rb->buffer;
         else
             ++rb->tail;
-    } else {
-        ++rb->cnt;
-    }
+    } 
+
     return prev_tail;
 }
 
@@ -382,7 +386,6 @@ static double get_window_std(sts_window window) {
 }
 
 static sts_word update_current_word(sts_window window) {
-    if (!sts_window_is_ready(window)) return NULL;
     apply_sax_transform(window->current_word.n_values, window->current_word.w, 
             window->current_word.c, window->values->mu, get_window_std(window), 
             window->current_word.symbols, 
@@ -543,10 +546,15 @@ bool sts_words_equal(const struct sts_word* a, const struct sts_word* b) {
 bool sts_reset_window(sts_window w) {
     if (!w || w->values == NULL || w->values->buffer == NULL) return false;
     w->values->tail = w->values->head = w->values->buffer;
-    w->values->cnt = 0;
     w->values->mu = 0;
     w->values->s2 = 0;
     w->values->finite_cnt = 0;
+    for (size_t i = 0; i <= w->current_word.n_values; ++i) {
+        w->values->buffer[i] = NAN;
+    }
+    for (size_t i = 0; i < w->current_word.w; ++i) {
+        w->current_word.symbols[i] = w->current_word.c;
+    }
     return true;
 }
 
@@ -575,11 +583,6 @@ sts_word sts_dup_word(const struct sts_word* a) {
     return new_word(a->n_values, a->w, a->c, sts_symbols);
 }
 
-bool sts_window_is_ready(const struct sts_window *window) {
-    if (!window || !window->values || !window->current_word.symbols) return false;
-    return window->values->cnt == window->current_word.n_values;
-}
-
 /* No namespaces in C, so it goes here */
 #ifdef STS_COMPILE_UNIT_TESTS
 
@@ -591,7 +594,7 @@ static char *test_get_symbol_zero() {
     for (size_t c = 2; c <= STS_MAX_CARDINALITY; ++c) {
         sts_symbol zero_encoded = get_symbol(0.0, c);
         mu_assert(zero_encoded == (c / 2) - 1 + (c % 2),
-                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, (usize) c);
+                "zero encoded into %u for cardinality %" PRIuSIZE, zero_encoded, c);
     }
     return NULL;
 }
@@ -602,7 +605,7 @@ static char *test_get_symbol_breaks() {
             sts_symbol break_encoded = get_symbol(breaks[c-2][i], c);
             mu_assert(break_encoded == c - i - 1, "%lf encoded into %u instead of %" 
                     PRIuSIZE ". c == %" PRIuSIZE, 
-                    breaks[c-2][i], break_encoded, (usize) c - i - 1, (usize) c);
+                    breaks[c-2][i], break_encoded, c - i - 1, c);
         }
     }
     return NULL;
@@ -655,7 +658,7 @@ static char *test_to_sax_stationary() {
             for (size_t i = 0; i < w; ++i) {
                 mu_assert(sax->symbols[i] == (c / 2) - 1 + (c%2),
                         "#%" PRIuSIZE "element of stationary sequence encoded into %u", 
-                        (usize) i, sax->symbols[i]);
+                        i, sax->symbols[i]);
             }
             sts_free_word(sax);
         }
@@ -666,14 +669,14 @@ static char *test_to_sax_stationary() {
 #define TEST_FILL(window, word, test) \
     for (size_t i = 0; i < 16; ++i) { \
         (word) = sts_append_value((window), seq[i]); \
-        mu_assert(((word) == NULL) == (i < 15 ? true : false), \
-            "sts_append_value failed %" PRIuSIZE, (usize) i); \
+        mu_assert((word) != NULL, \
+            "sts_append_value failed %" PRIuSIZE, i); \
     } \
-    mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
+    mu_assert((window)->values->finite_cnt == 16, "ring buffer failed"); \
     mu_assert((word)->symbols != NULL, "ring buffer failed"); \
     mu_assert(memcmp((test)->symbols, (word)->symbols, w) == 0, "ring buffer failed"); \
     mu_assert(((word) = sts_append_value((window), 0)) != NULL, "ring buffer failed"); \
-    mu_assert((window)->values->cnt == 16, "ring buffer failed"); \
+    mu_assert((window)->values->finite_cnt == 16, "ring buffer failed"); \
 
 static bool words_equal(const struct sts_word* a, const struct sts_word* b) {
     return a->n_values == b->n_values && a->w == b->w && a->c == b->c &&
@@ -698,7 +701,7 @@ static char *test_sliding_word() {
             mu_assert(cword->symbols != dword->symbols, "sts_dup_word should allocate new word");
 
             mu_assert(sts_reset_window(window), "sts_winodw_reset failed");
-            mu_assert(window->values->cnt == 0, "sts_reset_window failed");
+            mu_assert(window->values->finite_cnt == 0, "sts_reset_window failed");
             TEST_FILL(window, dword, word);
             mu_assert(words_equal(cword, dword), "sts_dup_word failed");
             mu_assert(words_equal(cword, sts_append_array(window, nseq, 17)), 
@@ -752,7 +755,6 @@ static char *online_mu_sigma_random_test() {
                 sts_append_value(win, buf[n_values + offset - 1]);
                 new_fin = win->values->finite_cnt;
             }
-            mu_assert(sts_window_is_ready(win), "append_array failed");
             double mu, std;
             estimate_mu_and_std(buf + offset, n_values, &mu, &std);
             double winmu = win->values->mu; 

@@ -15,15 +15,10 @@
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER)
 #define PRIuSIZE "Iu"
-typedef size_t usize;
-#elif _GNUC_
-#define PRIuSIZE "zu"
-typedef size_t usize;
 #else
-#define PRIuSIZE "lu"
-typedef unsigned long usize;
+#define PRIuSIZE "zu"
 #endif
 
 
@@ -37,7 +32,6 @@ typedef struct sts_word {
 } *sts_word;
 
 struct sts_ring_buffer {
-    size_t cnt; // total number of elements currently stored
     double *buffer, *buffer_end;
     double *head, *tail;
     double mu, s2; // mean and summ of squared deviations for on-line estimation
