@@ -12,7 +12,7 @@ The codebase under this repository is supposed to be operated in one of three wa
 ###Prerequisites
 * C compiler (GCC 4.7+)
 * Lua 5.1 (optional, needed to build Lua part)
-* [CMake (3.0+)](http://cmake.org/cmake/resources/software.html)
+* [CMake (2.8.7+)](http://cmake.org/cmake/resources/software.html)
 
 ###CMake Build Instructions
     git clone https://github.com/Quadrocube/symtseries.git
@@ -53,7 +53,7 @@ globally registered and returned by the require function.
 
 *Return*  
 
-- mozsvc.sax.window userdata object.
+- mozsvc.sax.window userdata object
 
 #### word.new[(v, w, c), (s, c)]
 ```lua
@@ -76,7 +76,7 @@ print(a == b)
 
 *Return*  
 
-- mozsvc.sax.word userdata object.
+- mozsvc.sax.word userdata object
 
 #### mindist(a, b)
 ```lua
@@ -114,13 +114,13 @@ local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}
 local a = sax.word.new(values, 2, 4)
 
-for i=1,4 do print(window:add(values[i])) end
+for i=1,4 do window:add(values[i]) end
 
 print(a == window)
-print(window:add({-10, 1, 2, 3, 10.1})) -- it only copies n last values if given more than n
+window:add({-10, 1, 2, 3, 10.1}) -- it only copies n last values if given more than n
 print(a == window)
 
--- prints false false false true true true
+-- prints true true
 ```
 
 *Arguments*  
@@ -129,13 +129,13 @@ print(a == window)
 
 *Return*  
 
-- false if there's less than n values inside window after appending val or true otherwise. 
+- none - throws an error on invalid input
 
 #### get_word()
 
 *Return*  
 
-- returns copy of current word or nil if there isn't yet enough data to construct the whole world
+- returns a copy of current word
 
 #### clear()
 ```lua
@@ -144,16 +144,16 @@ local values = {1, 2, 3, 10.1}
 
 for i=1,4 do window:add(values[i]) end
 
+print(window)
 window:clear()
-print(window:add(1.3))
-print(window:get_word() == nil)
+print(window)
 
--- prints false true
+-- prints AD ##
 ```
 
 *Return*  
 
-- Nothing. Just resets the window.
+- none - just resets the window
 
 #### __tostring
 ```lua
@@ -165,7 +165,7 @@ print(win)
 
 *Return*  
 
-- string representing the current word in window in SAX notation or nil if the word is incomplete
+- string representing the current word in window in SAX notation
 
 #### __eq
 ```lua

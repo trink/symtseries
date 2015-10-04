@@ -5,7 +5,7 @@
 # Build lua wrap library
 
 include(${CMAKE_MODULE_PATH}/dist.cmake)
-add_definitions(-DLUA_COMPAT_MODULE -DDIST_VERSION="0.1.0")
+add_definitions(-DLUA_COMPAT_MODULE -DDIST_VERSION="${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 include(lua)
 
 install_lua_module(sax lua_sax.c lua_sax.def LINK symtseries_stat)
