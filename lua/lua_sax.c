@@ -23,12 +23,12 @@ static const char* mozsvc_sax_word = "mozsvc.sax.word";
 static const char* mozsvc_sax_win_suffix = "window";
 static const char* mozsvc_sax_word_suffix = "word";
 
-static void check_nwc(lua_State* lua, int n, int w, int c, int offset) 
+static void check_nwc(lua_State* lua, int n, int w, int c, int offset)
 {
-  luaL_argcheck(lua, n > 1 && n <= 4096, 
+  luaL_argcheck(lua, n > 1 && n <= 4096,
       offset, "n is out of range");
   luaL_argcheck(lua, w > 1 && w <= 2048, offset, "w is out of range");
-  luaL_argcheck(lua, n % w == 0, offset, 
+  luaL_argcheck(lua, n % w == 0, offset,
                 "n must be evenly divisible by w");
   luaL_argcheck(lua, 1 < c && c <= STS_MAX_CARDINALITY, offset,
                 "cardinality is out of range");
@@ -45,8 +45,8 @@ typedef enum {SAX_WORD, SAX_WINDOW} sax_type;
 static sax_type sax_gettype(lua_State* lua, int ind)
 {
   void *ud = lua_touserdata(lua, ind);
-  if (ud != NULL) {  
-    if (lua_getmetatable(lua, ind)) { 
+  if (ud) {
+    if (lua_getmetatable(lua, ind)) {
       lua_getfield(lua, LUA_REGISTRYINDEX, mozsvc_sax_word);
       if (lua_rawequal(lua, -1, -2)) {
         lua_pop(lua, 2);  /* remove both metatables */
@@ -84,7 +84,7 @@ static sts_window check_sax_window(lua_State* lua, int ind)
   return *ud;
 }
 
-static void push_window(lua_State* lua, sts_window win) 
+static void push_window(lua_State* lua, sts_window win)
 {
   sts_window* ud = lua_newuserdata(lua, sizeof *ud);
   if (!ud) luaL_error(lua, "memory allocation failed");
@@ -119,13 +119,12 @@ static void push_word(lua_State* lua, const struct sts_word* a)
   lua_setmetatable(lua, -2);
 }
 
-static double *check_array(lua_State* lua, int ind, size_t size) 
+static double *check_array(lua_State* lua, int ind, size_t size)
 {
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
   for (size_t i = 1; i <= size; ++i) {
-    lua_pushnumber(lua, i);
-    lua_gettable(lua, ind);
+    lua_rawgeti(lua, ind, i);
     if (!lua_isnumber(lua, -1)) {
       free(buf);
       luaL_argerror(lua, 1, "expected array of numbers as input");
@@ -140,28 +139,20 @@ static int sax_add(lua_State* lua)
 {
   luaL_argcheck(lua, lua_gettop(lua) == 2, 0, "incorrect number of args");
   sts_window win = check_sax_window(lua, 1);
-  const struct sts_word* a = NULL;
   if (lua_isnumber(lua, 2)) {
     double d = lua_tonumber(lua, 2);
-    a = sts_append_value(win, d);
+    sts_append_value(win, d);
   } else {
-    if (!lua_istable(lua, 2)) 
+    if (!lua_istable(lua, 2))
       luaL_argerror(lua, 2, "number or array-like table expected");
     size_t size = lua_objlen(lua, 2);
-    if (size == 0) {
-      a = &win->current_word;
-    } else {
+    if (size) {
       double *vals = check_array(lua, 2, size);
-      a = sts_append_array(win, vals, size);
+      sts_append_array(win, vals, size);
       free(vals);
     }
   }
-  if (!a) {
-    lua_pushboolean(lua, 0);
-  } else {
-    lua_pushboolean(lua, 1);
-  }
-  return 1;
+  return 0;
 }
 
 static int sax_mindist(lua_State* lua)
@@ -207,11 +198,11 @@ static int sax_window_get_word(lua_State* lua)
   return 1;
 }
 
-static int sax_from_double_array(lua_State* lua) 
+static int sax_from_double_array(lua_State* lua)
 {
   int w = luaL_checkint(lua, 2);
   int c = luaL_checkint(lua, 3);
-  if (!lua_istable(lua, 1)) 
+  if (!lua_istable(lua, 1))
     luaL_argerror(lua, 1, "array-like table expected");
 
   size_t size = lua_objlen(lua, 1);
@@ -226,20 +217,20 @@ static int sax_from_double_array(lua_State* lua)
   return 1;
 }
 
-static int sax_from_string(lua_State* lua) 
+static int sax_from_string(lua_State* lua)
 {
   size_t len;
   const char *s = luaL_checklstring(lua, 1, &len);
   luaL_argcheck(lua, len > 1, 1, "length of SAX string should be > 1");
   int c = luaL_checkint(lua, 2);
   sts_word a = sts_from_sax_string(s, c);
-  if (!a) luaL_argerror(lua, 1, 
+  if (!a) luaL_argerror(lua, 1,
         "illegal symbols for given cardinality or bad cardinality itself");
   push_word(lua, a);
   return 1;
 }
 
-static int sax_new_word(lua_State* lua) 
+static int sax_new_word(lua_State* lua)
 {
   int argc = lua_gettop(lua);
   switch (argc) {
@@ -276,15 +267,15 @@ static int serialize_sax(lua_State* lua)
   sax_type type = sax_gettype(lua, -3);
   if (!key || !output) return 1;
   switch (type) {
-    case SAX_WINDOW: 
+    case SAX_WINDOW:
     {
       const struct sts_window *win = check_sax_window(lua, -3);
       size_t n = win->current_word.n_values;
       size_t w = win->current_word.w;
       size_t c = win->current_word.c;
       if (lsb_appendf(output,
-            "if %s == nil then %s = sax.window.new(%" PRIuSIZE ", %" PRIuSIZE 
-            ", %" PRIuSIZE ") end\n", 
+            "if %s == nil then %s = sax.window.new(%" PRIuSIZE ", %" PRIuSIZE
+            ", %" PRIuSIZE ") end\n",
             key, key, n, w, c)) return 1;
       if (!all_nans(win->values->buffer, win->current_word.n_values + 1)) {
         if (lsb_appendf(output, "%s:clear()\n%s:add({", key, key)) return 1;
@@ -292,17 +283,7 @@ static int serialize_sax(lua_State* lua)
         size_t n_values = 0;
         while (val != win->values->head) {
           if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
-          if (isnan(*val)) {
-            if (lsb_appends(output, "0/0", 3)) return 1;
-          } else if (!isfinite(*val)) {
-            if (*val > 0) {
-              if (lsb_appends(output, "1/0", 3)) return 1;
-            } else {
-              if (lsb_appends(output, "-1/0", 4)) return 1;
-            }
-          } else {
-            if (lsb_serialize_double(output, *val)) return 1;
-          }
+          if (lsb_serialize_double(output, *val)) return 1;
           if (++val == win->values->buffer_end) val = win->values->buffer;
         }
         if (lsb_appends(output, "})\n", 3)) return 1;
@@ -315,7 +296,7 @@ static int serialize_sax(lua_State* lua)
       char *sax = sts_word_to_sax_string(a);
       if (!sax) luaL_error(lua, "memory allocation failed");
       if (lsb_appendf(output,
-            "if %s == nil then %s = sax.word.new(\"%s\", %" PRIuSIZE ") end\n", 
+            "if %s == nil then %s = sax.word.new(\"%s\", %" PRIuSIZE ") end\n",
             key, key, sax, a->c)) return 1;
       free(sax);
       return 0;
@@ -386,7 +367,7 @@ static const struct luaL_Reg saxlib_win[] =
   , { NULL, NULL }
 };
 
-static void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module) 
+static void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *module)
 {
   luaL_newmetatable(lua, name);
   lua_pushvalue(lua, -1);
@@ -397,7 +378,7 @@ static void reg_class(lua_State* lua, const char *name, const struct luaL_Reg *m
   lua_pop(lua, 1); // Pop table
 }
 
-static void reg_module(lua_State* lua, const char *name, const lua_CFunction module) 
+static void reg_module(lua_State* lua, const char *name, const lua_CFunction module)
 {
   lua_newtable(lua);
   lua_pushcfunction(lua, module);
@@ -415,7 +396,7 @@ int luaopen_sax(lua_State* lua)
 #endif // LUA_SANDBOX
 
   /* We're registering sax_equal separately since it's the only way to make lua
-   * aware that it's exactly the same function each time 
+   * aware that it's exactly the same function each time
    * (otherwise it doesn't get called on different object types) */
   lua_pushcfunction(lua, sax_equal);
 
