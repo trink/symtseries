@@ -87,9 +87,13 @@ static sts_window check_sax_window(lua_State* lua, int ind)
 static void push_window(lua_State* lua, sts_window win)
 {
   sts_window* ud = lua_newuserdata(lua, sizeof *ud);
-  if (!ud) luaL_error(lua, "memory allocation failed");
-  *ud = win;
+  if (!ud) {
+    luaL_error(lua, "memory allocation failed");
+    // never reached since error long jumps but aids static analysis
+    return;
+  }
 
+  *ud = win;
   luaL_getmetatable(lua, mozsvc_sax_window);
   lua_setmetatable(lua, -2);
 }
@@ -103,7 +107,9 @@ static int sax_new_window(lua_State* lua)
   check_nwc(lua, n, w, c, 1);
 
   sts_window win = sts_new_window(n, w, c);
-  if (!win) luaL_error(lua, "memory allocation failed");
+  if (!win) {
+    return luaL_error(lua, "memory allocation failed");
+  }
 
   push_window(lua, win);
   return 1;
@@ -112,9 +118,13 @@ static int sax_new_window(lua_State* lua)
 static void push_word(lua_State* lua, const struct sts_word* a)
 {
   const struct sts_word **ud = lua_newuserdata(lua, sizeof *ud);
-  if (!ud) luaL_error(lua, "memory allocation failed");
-  *ud = a;
+  if (!ud) {
+    luaL_error(lua, "memory allocation failed");
+    // never reached since error long jumps but aids static analysis
+    return;
+  }
 
+  *ud = a;
   luaL_getmetatable(lua, mozsvc_sax_word);
   lua_setmetatable(lua, -2);
 }
@@ -122,12 +132,18 @@ static void push_word(lua_State* lua, const struct sts_word* a)
 static double *check_array(lua_State* lua, int ind, size_t size)
 {
   double *buf = malloc(size * sizeof *buf);
-  if (!buf) luaL_error(lua, "memory allocation failed");
+  if (!buf) {
+    luaL_error(lua, "memory allocation failed");
+    // never reached since error long jumps but aids static analysis
+    return NULL;
+  }
   for (size_t i = 1; i <= size; ++i) {
     lua_rawgeti(lua, ind, (int)i);
     if (!lua_isnumber(lua, -1)) {
       free(buf);
       luaL_argerror(lua, 1, "expected array of numbers as input");
+      // never reached since argerror long jumps but aids static analysis
+      return NULL;
     }
     buf[i-1] = lua_tonumber(lua, -1);
     lua_pop(lua, 1);
@@ -176,7 +192,10 @@ static int sax_to_string(lua_State* lua)
   luaL_argcheck(lua, lua_gettop(lua) == 1, 0, "incorrect number of args");
   const struct sts_word *a = check_word_or_window(lua, 1);
   char *str = sts_word_to_sax_string(a);
-  if (!str) luaL_argerror(lua, 1, "unprocessable symbols for cardinality detected");
+  if (!str) {
+    return luaL_argerror(lua, 1, "unprocessable symbols for cardinality "
+                         "detected");
+  }
   lua_pushstring(lua, str);
   free(str);
   return 1;
@@ -299,10 +318,15 @@ static int serialize_sax(lua_State* lua)
     {
       const struct sts_word *a = check_sax_word(lua, -3);
       char *sax = sts_word_to_sax_string(a);
-      if (!sax) luaL_error(lua, "memory allocation failed");
+      if (!sax) {
+        return luaL_error(lua, "memory allocation failed");
+      }
       if (lsb_appendf(output,
             "if %s == nil then %s = sax.word.new(\"%s\", %" PRIuSIZE ") end\n",
-            key, key, sax, a->c)) return 1;
+            key, key, sax, a->c)) {
+        free(sax);
+        return 1;
+      }
       free(sax);
       return 0;
     }
@@ -318,8 +342,11 @@ static int output_sax(lua_State* lua)
   }
   const struct sts_word *a = check_word_or_window(lua, -2);
   char *sax = sts_word_to_sax_string(a);
-  if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
+  if (!sax) {
+    return luaL_error(lua, "unprocessable symbols for cardinality detected");
+  }
   if (lsb_appends(output, sax, strlen(sax))) {
+    free(sax);
     return 1;
   }
   free(sax);
