@@ -14,6 +14,6 @@ endif()
 # Build unit tests
 include_directories(test)
 add_executable(sts_test symtseries.c)
-target_compile_definitions(sts_test PRIVATE -DSTS_COMPILE_UNIT_TESTS)
+set_target_properties(sts_test PROPERTIES COMPILE_DEFINITIONS STS_COMPILE_UNIT_TESTS)
 target_link_libraries(sts_test ${UNIX_LIBRARIES})
 add_test(NAME sts_test COMMAND sts_test)
