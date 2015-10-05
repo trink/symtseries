@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* This implementation is based on several SAX papers, 
+/* This implementation is based on several SAX papers,
  * the latest of which can be found here:
  * http://www.cs.ucr.edu/~eamonn/iSAX_2.0.pdf */
 
@@ -25,10 +25,10 @@
 typedef unsigned char sts_symbol;
 
 typedef struct sts_word {
+    sts_symbol *symbols;
     size_t n_values;
     size_t w;
-    size_t c; // TODO: migrate to multi-cardinal words (for indexing)
-    sts_symbol *symbols;
+    unsigned char c; // TODO: migrate to multi-cardinal words (for indexing)
 } *sts_word;
 
 struct sts_ring_buffer {
@@ -50,7 +50,7 @@ typedef struct sts_window {
  * @param w: length of the produced code, should be divisor of n
  * @returns NULL on failure or allocated window
  */
-sts_window sts_new_window(size_t n, size_t w, unsigned int c);
+sts_window sts_new_window(size_t n, size_t w, unsigned char c);
 
 /*
  * Appends new value to the end of the window
@@ -58,7 +58,7 @@ sts_window sts_new_window(size_t n, size_t w, unsigned int c);
  * Re-computes symbols in accordance with window->c and window->w
  * @param word: window to be updated
  * @param value: value to be appended
- * @returns pointer to updated window->current_word if there are enough values 
+ * @returns pointer to updated window->current_word if there are enough values
  * to construct a word, NULL otherwise. sts_dup_word to store it
  */
 const struct sts_word* sts_append_value(sts_window window, double value);
@@ -86,7 +86,7 @@ sts_word sts_from_double_array(const double *series, size_t n_values, size_t w, 
  * @returns NULL on failure (illegal symbols for cardinality or unprocessable cardinality itself)
  * or freshly-allocated sts_word with sts_word.w == strlen(symbols)
  */
-sts_word sts_from_sax_string(const char *symbols, size_t c);
+sts_word sts_from_sax_string(const char *symbols, unsigned char c);
 
 /*
  * @param a: word
@@ -95,13 +95,13 @@ sts_word sts_from_sax_string(const char *symbols, size_t c);
 char *sts_word_to_sax_string(const struct sts_word *a);
 
 /*
- * Returns the lowerbounding approximation on distance 
+ * Returns the lowerbounding approximation on distance
  * between sax-represented series a and b.
- * One of the words can have sts_word->n_values == 0 and 
+ * One of the words can have sts_word->n_values == 0 and
  * method will use other's word n_values for mindist estimation.
  * @param a, b: sax representations of sequences
  * @returns NaN on failure, otherwise minimum possible distance between original series
- * @note mindist(NaNframe, NaNframe) = 0, 
+ * @note mindist(NaNframe, NaNframe) = 0,
  *       mindist(NaNframe, Non-NaNframe x) = maxdist(x, any other symbol in cardinality `c`)
  */
 double sts_mindist(const struct sts_word* a, const struct sts_word* b);

@@ -42,6 +42,8 @@ else()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
         find_library(LM NAMES m)
         set(UNIX_LIBRARIES ${LM})
+    else()
+        set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -D__USE_MINGW_ANSI_STDIO")
     endif()
 endif()
 

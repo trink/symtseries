@@ -124,7 +124,7 @@ static double *check_array(lua_State* lua, int ind, size_t size)
   double *buf = malloc(size * sizeof *buf);
   if (!buf) luaL_error(lua, "memory allocation failed");
   for (size_t i = 1; i <= size; ++i) {
-    lua_rawgeti(lua, ind, i);
+    lua_rawgeti(lua, ind, (int)i);
     if (!lua_isnumber(lua, -1)) {
       free(buf);
       luaL_argerror(lua, 1, "expected array of numbers as input");
@@ -143,8 +143,9 @@ static int sax_add(lua_State* lua)
     double d = lua_tonumber(lua, 2);
     sts_append_value(win, d);
   } else {
-    if (!lua_istable(lua, 2))
-      luaL_argerror(lua, 2, "number or array-like table expected");
+    if (!lua_istable(lua, 2)) {
+      return luaL_argerror(lua, 2, "number or array-like table expected");
+    }
     size_t size = lua_objlen(lua, 2);
     if (size) {
       double *vals = check_array(lua, 2, size);
@@ -202,17 +203,19 @@ static int sax_from_double_array(lua_State* lua)
 {
   int w = luaL_checkint(lua, 2);
   int c = luaL_checkint(lua, 3);
-  if (!lua_istable(lua, 1))
-    luaL_argerror(lua, 1, "array-like table expected");
+  if (!lua_istable(lua, 1)) {
+    return luaL_argerror(lua, 1, "array-like table expected");
+  }
 
   size_t size = lua_objlen(lua, 1);
-  check_nwc(lua, size, w, c, 2);
+  check_nwc(lua, (int)size, w, c, 2);
 
   double *buf = check_array(lua, 1, size);
   sts_word a = sts_from_double_array(buf, size, w, c);
-  if (!a) luaL_error(lua, "memory allocation failed");
   free(buf);
-
+  if (!a) {
+    return luaL_error(lua, "memory allocation failed");
+  }
   push_word(lua, a);
   return 1;
 }
@@ -224,8 +227,10 @@ static int sax_from_string(lua_State* lua)
   luaL_argcheck(lua, len > 1, 1, "length of SAX string should be > 1");
   int c = luaL_checkint(lua, 2);
   sts_word a = sts_from_sax_string(s, c);
-  if (!a) luaL_argerror(lua, 1,
-        "illegal symbols for given cardinality or bad cardinality itself");
+  if (!a) {
+    return luaL_argerror(lua, 1, "illegal symbols for given cardinality "
+                         "or bad cardinality itself");
+  }
   push_word(lua, a);
   return 1;
 }
@@ -308,7 +313,9 @@ static int serialize_sax(lua_State* lua)
 static int output_sax(lua_State* lua)
 {
   lsb_output_data *output = lua_touserdata(lua, -1);
-  if (!output) return 1;
+  if (!output) {
+    return 1;
+  }
   const struct sts_word *a = check_word_or_window(lua, -2);
   char *sax = sts_word_to_sax_string(a);
   if (!sax) luaL_error(lua, "unprocessable symbols for cardinality detected");
