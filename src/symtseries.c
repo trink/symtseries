@@ -287,16 +287,17 @@ sts_window sts_new_window(size_t n, size_t w, unsigned char c) {
     }
     struct sts_ring_buffer *values = malloc(sizeof *values);
     if (!values) return NULL;
-    values->buffer = malloc((n + 1) * sizeof *values->buffer);
+    values->buffer = malloc(n * sizeof *values->buffer);
     if (!values->buffer) {
         free(values);
         return NULL;
     }
-    for (size_t i = 0; i <= n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         values->buffer[i] = NAN;
     }
-    values->buffer_end = values->buffer + n + 1;
-    values->head = values->tail = values->buffer;
+    values->buffer_end = values->buffer + n;
+    values->head = values->buffer;
+    values->tail = values->buffer_end - 1;
     values->mu = 0;
     values->s2 = 0;
     values->finite_cnt = 0;
@@ -308,27 +309,27 @@ sts_window sts_new_window(size_t n, size_t w, unsigned char c) {
  */
 static double rb_push(struct sts_ring_buffer* rb, double value)
 {
-    double prev_tail = 0;
+    double prev_head = 0;
     if (isfinite(value)) {
         ++rb->finite_cnt;
     }
-    *rb->head = value;
-    ++rb->head;
-    if (rb->head == rb->buffer_end)
-        rb->head = rb->buffer;
-
-    if (rb->head == rb->tail) {
-        prev_tail = *rb->tail;
-        if (isfinite(*rb->tail)) {
-            --rb->finite_cnt;
-        }
-        if ((rb->tail + 1) == rb->buffer_end)
-            rb->tail = rb->buffer;
-        else
-            ++rb->tail;
+    ++rb->tail;
+    if (rb->tail == rb->buffer_end) {
+        rb->tail = rb->buffer;
     }
 
-    return prev_tail;
+    if (rb->tail == rb->head) {
+        prev_head = *rb->head;
+        if (isfinite(*rb->head)) {
+            --rb->finite_cnt;
+        }
+        if (++rb->head == rb->buffer_end) {
+            rb->head = rb->buffer;
+        }
+    }
+    *rb->tail = value;
+
+    return prev_head;
 }
 
 /*
@@ -391,10 +392,15 @@ static double get_window_std(sts_window window) {
 }
 
 static sts_word update_current_word(sts_window window) {
-    apply_sax_transform(window->current_word.n_values, window->current_word.w,
-            window->current_word.c, window->values->mu, get_window_std(window),
-            window->current_word.symbols,
-            window->values->tail, window->values->buffer, window->values->buffer_end);
+    apply_sax_transform(window->current_word.n_values,
+                        window->current_word.w,
+                        window->current_word.c,
+                        window->values->mu,
+                        get_window_std(window),
+                        window->current_word.symbols,
+                        window->values->head,
+                        window->values->buffer,
+                        window->values->buffer_end);
     return &window->current_word;
 }
 
@@ -403,20 +409,20 @@ static sts_word update_current_word(sts_window window) {
  */
 static void append_value(sts_window window, double value) {
     size_t prev_finite = window->values->finite_cnt;
-    double tail = rb_push(window->values, value);
+    double head = rb_push(window->values, value);
     size_t new_finite = window->values->finite_cnt;
     // Update mu and s2
     if (prev_finite == new_finite) {
         // either
-        // 1) added finite and removed finite from tail or
+        // 1) added finite and removed finite from head or
         // 2) added non-finite and removed non-finite or
         // 3) added non-finite on an empty place
         // update only in case 1 (size remained the same)
         if (isfinite(value)) {
-            double diff = value - tail;
+            double diff = value - head;
             window->values->mu += diff / prev_finite;
             double a = value - window->values->mu;
-            double b = tail - window->values->mu;
+            double b = head - window->values->mu;
             window->values->s2 += diff * diff / new_finite + a * a - b * b;
         }
     } else if (new_finite < prev_finite) {
@@ -426,15 +432,15 @@ static void append_value(sts_window window, double value) {
             window->values->s2 = 0;
         } else {
             double prev_mu = window->values->mu;
-            window->values->mu = (prev_mu * prev_finite - tail) / new_finite;
-            double old_diff = prev_mu - tail;
-            double new_diff = window->values->mu - tail;
+            window->values->mu = (prev_mu * prev_finite - head) / new_finite;
+            double old_diff = prev_mu - head;
+            double new_diff = window->values->mu - head;
             window->values->s2 += ((old_diff * old_diff * prev_finite)
                     / (new_finite * new_finite)) - new_diff * new_diff;
         }
     } else {
         // added new finite either on the empty place
-        // or in place of non-finite tail
+        // or in place of non-finite head
         // size increased in any case -> update
         window->values->s2 += ((value - window->values->mu) * (value - window->values->mu)
                 * prev_finite) / new_finite;
@@ -562,12 +568,15 @@ bool sts_words_equal(const struct sts_word* a, const struct sts_word* b) {
 }
 
 bool sts_reset_window(sts_window w) {
-    if (!w || w->values == NULL || w->values->buffer == NULL) return false;
-    w->values->tail = w->values->head = w->values->buffer;
+    if (!w || w->values == NULL || w->values->buffer == NULL) {
+        return false;
+    }
+    w->values->tail = w->values->buffer + w->current_word.n_values - 1;
+    w->values->head = w->values->buffer;
     w->values->mu = 0;
     w->values->s2 = 0;
     w->values->finite_cnt = 0;
-    for (size_t i = 0; i <= w->current_word.n_values; ++i) {
+    for (size_t i = 0; i < w->current_word.n_values; ++i) {
         w->values->buffer[i] = NAN;
     }
     for (size_t i = 0; i < w->current_word.w; ++i) {
