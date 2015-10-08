@@ -2,7 +2,7 @@ require "sax"
 require "string"
 require "math"
 
-assert(sax.version() == "0.2.0")
+assert(sax.version() == "0.3.0")
 
 local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local b = sax.word.new("FC", 8)
@@ -30,12 +30,15 @@ assert(a == window, "__eq word vs window failed")
 
 
 local window = sax.window.new(4, 2, 4)
+window:add(23)
+assert(tostring(window) == "#C", "received: " .. tostring(window))
 local values = {1, 2, 3, 10.1}
-
 for i=1,4 do window:add(values[i]) end
-
+assert(tostring(window) == "AD", "received: " .. tostring(window))
 window:clear()
 assert(window == sax.word.new("##", 4))
+window:add({23})
+assert(tostring(window) == "#C", "received: " .. tostring(window))
 
 local window = sax.window.new(4, 2, 4)
 local values = {1, 2, 3, 10.1}

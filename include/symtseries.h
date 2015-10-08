@@ -34,7 +34,7 @@ typedef struct sts_word {
 struct sts_ring_buffer {
     double *buffer, *buffer_end;
     double *head, *tail;
-    double mu, s2; // mean and summ of squared deviations for on-line estimation
+    double mu, s2; // mean and sum of squared deviations for on-line estimation
     size_t finite_cnt; // number of non-nan and non-inf elements
 };
 
