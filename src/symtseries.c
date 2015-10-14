@@ -763,9 +763,9 @@ static char *online_mu_sigma_random_test() {
     size_t n_runs = 250;
     double buf[STS_TEST_BUF_SIZE];
     srand((unsigned int)time(NULL));
-    sts_window win;
+    sts_window win = NULL;
     size_t n_values = 32;
-    size_t prev_fin, new_fin;
+    size_t prev_fin = 0, new_fin = 0;
     size_t w = 8;
     unsigned char c = 6;
     for (size_t i = 0; i < n_runs; ++i) {
