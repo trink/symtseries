@@ -179,13 +179,17 @@ static int sax_mindist(lua_State* lua)
   const struct sts_word* a = check_word_or_window(lua, 1);
   const struct sts_word* b = check_word_or_window(lua, 2);
 
-  double d = sts_mindist(a, b);
+  double above, below;
+  double d = sts_mindist_ab(a, b, &above, &below);
   if (isnan(d)) {
     lua_pushnil(lua);
+    return 1;
   } else {
     lua_pushnumber(lua, d);
+    lua_pushnumber(lua, above);
+    lua_pushnumber(lua, below);
   }
-  return 1;
+  return 3;
 }
 
 static int sax_to_string(lua_State* lua)

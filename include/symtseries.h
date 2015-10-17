@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define STS_MIN_CARDINALITY 2
 #define STS_MAX_CARDINALITY 16
 #define STS_STAT_EPS 1e-2
 
@@ -112,15 +113,33 @@ char* sts_word_to_sax_string(const struct sts_word* a);
  * Returns the lowerbounding approximation on distance between sax-represented
  * series a and b. One of the words can have sts_word->n_values == 0 and method
  * will use other's word n_values for mindist estimation.
- * @param a b: sax representations of sequences
- * @param b
+ * @param a word 1
+ * @param b word 2
  * @return NaN on failure, otherwise minimum possible distance between original
  * series
- * @note mindist(NaNframe, NaNframe) = 0,
- *       mindist(NaNframe, Non-NaNframe x) = maxdist(x, any other symbol in
- *       cardinality `c`)
+ * @note Special NaN cases c = 5 examples
+ * mindist("A", "#") == mindist("A", "E") // furthest symbol away
+ * mindist("E", "#") == mindist("E", "A") // furthest symbol away
+ * mindist("C", "#") == mindist("C", "A") // equal distant maps to lowest
+ * mindist("#", "#") == 0
+ *
  */
 double sts_mindist(const struct sts_word* a, const struct sts_word* b);
+
+/**
+ * Returns the lowerbounding approximation on distance between sax-represented
+ * series a and b plus the distance above and below.
+ * @param a word 1
+ * @param b word 2
+ * @param above mindist above b
+ * @param below mindist below b
+ * @return NaN on failure, otherwise minimum possible distance between original
+ * series
+ */
+double sts_mindist_ab(const struct sts_word* a,
+                      const struct sts_word* b,
+                      double* above,
+                      double* below);
 
 /**
  * Returns whether to words are considered equal in terms of w, c and
