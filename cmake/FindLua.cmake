@@ -40,8 +40,9 @@ if (LUA_SANDBOX_INCLUDE) # build against an uninstalled sandbox
     include_directories(${LUA_SANDBOX_INCLUDE})
     set(LIB_PATH ${EP_BASE}/lib)
     find_library(LUA_LIBRARY luasb PATHS ${LIB_PATH} NO_DEFAULT_PATH)
-    find_library(LUA_SANDBOX_LIBRARY luasandbox PATHS ${EP_BASE}/../src NO_DEFAULT_PATH)
-    set(LUA_LIBRARY "${LUA_LIBRARY};${LUA_SANDBOX_LIBRARY}")
+    find_library(LUASANDBOX_LIBRARY luasandbox PATHS ${EP_BASE}/../src NO_DEFAULT_PATH)
+    find_library(LUASANDBOX_UTIL_LIBRARY luasandboxutil PATHS ${EP_BASE}/../src/util NO_DEFAULT_PATH)
+    set(LUA_LIBRARY ${LUA_LIBRARY} ${LUASANDBOX_UTIL_LIBRARY} ${LUASANDBOX_LIBRARY})
 else() # build against the standard Lua
     # Always search for non-versioned lua first (recommended)
     SET(_POSSIBLE_LUA_INCLUDE include include/lua)
