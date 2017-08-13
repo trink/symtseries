@@ -1,20 +1,20 @@
-#Symbolic time series representations
+# Symbolic time series representations
 Means of representing your time series data in a convenient way for your task.
 
-##Overview
-The codebase under this repository is supposed to be operated in one of three ways:  
+## Overview
+The codebase under this repository is supposed to be operated in one of three ways:
 
 * As a standalone C library (builds automatically)
 * As a standalone Lua library (builds automatically provided Lua is found on your system)
 * As a plugin lib for [mozilla-services/lua_sandbox](https://github.com/mozilla-services/lua_sandbox) (is built upon fetch from main repo, linked against luasb headers)
 
-##Installation
-###Prerequisites
+## Installation
+### Prerequisites
 * C compiler (GCC 4.7+)
 * Lua 5.1 (optional, needed to build Lua part)
 * [CMake (2.8.7+)](http://cmake.org/cmake/resources/software.html)
 
-###CMake Build Instructions
+### CMake Build Instructions
     git clone https://github.com/Quadrocube/symtseries.git
     cd symtseries
     mkdir release
@@ -22,20 +22,20 @@ The codebase under this repository is supposed to be operated in one of three wa
     cmake .. -DCMAKE_BUILD_TYPE=Release && make
     ctest
 
-##SAX (Symbolic Aggregate approXimation)
-###Latest SAX paper 
+## SAX (Symbolic Aggregate approXimation)
+### Latest SAX paper
 [iSAX 2.0](http://www.cs.ucr.edu/~eamonn/iSAX_2.0.pdf "iSAX 2.0")
 
-###Overview
-SAX is the method of time series data representation which provides a user with several interesting capabilities:  
+### Overview
+SAX is the method of time series data representation which provides a user with several interesting capabilities:
 
 * Shape-based pattern matching (even for HUGE pattern collections -- which is yet TBD though)
 * Shape-based time series clustering
 * Numerosity and dimensionality reduction of your time series data
 
-###Example Usage
+### Example Usage
 
-###API functions
+### API functions
 #### window.new(n, w, c)
 ```lua
 require "sax"
@@ -43,15 +43,15 @@ local window = sax.window.new(150, 10, 8)
 ```
 
 Import _sax_ module via the Lua 'require' function. The module is
-globally registered and returned by the require function. 
+globally registered and returned by the require function.
 
-*Arguments*  
+*Arguments*
 
 - n (unsigned) The number of values to keep track of (must be > 1 and <= 4096)
 - w (unsigned) The number of frames to split the window into (must be > 1 and a divisor of n)
 - c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)
 
-*Return*  
+*Return*
 
 - mozsvc.sax.window userdata object
 
@@ -63,18 +63,18 @@ print(a == b)
 -- prints true
 ```
 
-*Arguments*  
+*Arguments*
 
 - v (table-array) Series to be represented in SAX notation (must be of length > 1 and <= 4096)
 - w (unsigned) The number of frames to split the series into (must be > 1 and a divisor of #v)
-- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
+- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)
 
-*OR*  
+*OR*
 
 - s (string) SAX-notation string denoting a word (must be of length > 1)
-- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)  
+- c (unsigned) The cardinality of the word (must be between 2 and STS_MAX_CARDINALITY)
 
-*Return*  
+*Return*
 
 - mozsvc.sax.word userdata object
 
@@ -88,12 +88,12 @@ local d = sax.mindist(a, b)
 -- d == 1.560325
 ```
 
-*Arguments*  
+*Arguments*
 
-- a, b (mozsvc.sax.word or mozsvc.sax.window) SAX words or windows to compute mindist. 
+- a, b (mozsvc.sax.word or mozsvc.sax.window) SAX words or windows to compute mindist.
 - Note that currently mindist between different-[nwc] words is not supported
 
-*Return*  
+*Return*
 
 - Lowerbounding approximation of the Euclidian distance between series represented in a and b
 
@@ -106,7 +106,7 @@ print(sax.version())
 
 - Version number as a string
 
-###Window methods
+### Window methods
 
 #### add(val)
 ```lua
@@ -123,17 +123,17 @@ print(a == window)
 -- prints true true
 ```
 
-*Arguments*  
+*Arguments*
 
 - val (number or array) value(s) to be appended to a window
 
-*Return*  
+*Return*
 
 - none - throws an error on invalid input
 
 #### get_word()
 
-*Return*  
+*Return*
 
 - returns a copy of current word
 
@@ -148,10 +148,10 @@ print(window)
 window:clear()
 print(window)
 
--- prints AD ##
+-- prints AD##
 ```
 
-*Return*  
+*Return*
 
 - none - just resets the window
 
@@ -163,7 +163,7 @@ print(win)
 -- prints CC
 ```
 
-*Return*  
+*Return*
 
 - string representing the current word in window in SAX notation
 
@@ -182,11 +182,11 @@ print(window == b)
 -- prints true true
 ```
 
-*Return*  
+*Return*
 
 - Whether or not two words are considered equal (per-symbol, w, and c comparison)
 
-###Word methods
+### Word methods
 
 #### __tostring
 ```lua
@@ -195,7 +195,7 @@ print(a)
 -- prints FC
 ```
 
-*Return*  
+*Return*
 
 - string representing this word in SAX notation
 
