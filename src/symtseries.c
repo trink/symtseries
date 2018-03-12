@@ -18,6 +18,8 @@
 // To silence the +INFINITY warning
 #pragma warning( disable : 4056 )
 #pragma warning( disable : 4756 )
+// To silence the float initialization with a double
+#pragma warning( disable : 4305 )
 #endif
 
 /* Breakpoints used in iSAX symbol estimation */

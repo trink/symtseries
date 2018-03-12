@@ -2,7 +2,7 @@ require "sax"
 require "string"
 require "math"
 
-assert(sax.version() == "0.4.0", sax.version())
+assert(sax.version() == "0.5.0", sax.version())
 
 local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local b = sax.word.new("FC", 8)

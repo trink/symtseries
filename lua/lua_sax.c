@@ -292,10 +292,10 @@ static bool all_nans(double* array, size_t size)
 
 static int serialize_sax(lua_State* lua)
 {
-  lsb_output_data* output = lua_touserdata(lua, -1);
+  lsb_output_buffer* ob = lua_touserdata(lua, -1);
   const char* key = lua_touserdata(lua, -2);
   sax_type type = sax_gettype(lua, -3);
-  if (!key || !output) return 1;
+  if (!key || !ob) return 1;
   switch (type) {
   case SAX_WINDOW:
     {
@@ -303,20 +303,20 @@ static int serialize_sax(lua_State* lua)
       size_t n = win->current_word.n_values;
       size_t w = win->current_word.w;
       size_t c = win->current_word.c;
-      if (lsb_appendf(output,
+      if (lsb_outputf(ob,
                       "if %s == nil then %s = sax.window.new(%" PRIuSIZE
                       ", %" PRIuSIZE ", %" PRIuSIZE ") end\n",
                       key, key, n, w, c)) return 1;
-      if (!all_nans(win->values->buffer, win->current_word.n_values + 1)) {
-        if (lsb_appendf(output, "%s:clear()\n%s:add({", key, key)) return 1;
+      if (!all_nans(win->values->buffer, win->current_word.n_values)) {
+        if (lsb_outputf(ob, "%s:clear()\n%s:add({", key, key)) return 1;
         double* val = win->values->head;
         size_t n_values = 0;
         while (n_values < n) {
-          if (n_values++ != 0 && lsb_appends(output, ",", 1)) return 1;
-          if (lsb_serialize_double(output, *val)) return 1;
+          if (n_values++ != 0 && lsb_outputs(ob, ",", 1)) return 1;
+          if (lsb_serialize_double(ob, *val)) return 1;
           if (++val == win->values->buffer_end) val = win->values->buffer;
         }
-        if (lsb_appends(output, "})\n", 3)) return 1;
+        if (lsb_outputs(ob, "})\n", 3)) return 1;
       }
       return 0;
     }
@@ -327,7 +327,7 @@ static int serialize_sax(lua_State* lua)
       if (!sax) {
         return luaL_error(lua, "memory allocation failed");
       }
-      if (lsb_appendf(output,
+      if (lsb_outputf(ob,
                       "if %s == nil then %s = sax.word.new(\"%s\", %" PRIuSIZE
                       ") end\n",
                       key, key, sax, a->c)) {
@@ -343,8 +343,8 @@ static int serialize_sax(lua_State* lua)
 
 static int output_sax(lua_State* lua)
 {
-  lsb_output_data* output = lua_touserdata(lua, -1);
-  if (!output) {
+  lsb_output_buffer* ob = lua_touserdata(lua, -1);
+  if (!ob) {
     return 1;
   }
   const struct sts_word* a = check_word_or_window(lua, -2);
@@ -352,7 +352,7 @@ static int output_sax(lua_State* lua)
   if (!sax) {
     return luaL_error(lua, "unprocessable symbols for cardinality detected");
   }
-  if (lsb_appends(output, sax, strlen(sax))) {
+  if (lsb_outputs(ob, sax, strlen(sax))) {
     free(sax);
     return 1;
   }
