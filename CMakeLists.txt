@@ -3,60 +3,58 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
-project(symtseries C)
+project(sax VERSION 0.5.0 LANGUAGES C)
 
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Symbolic analysis for time series data")
-set(CPACK_PACKAGE_VERSION_MAJOR 0)
-set(CPACK_PACKAGE_VERSION_MINOR 5)
-set(CPACK_PACKAGE_VERSION_PATCH 0)
+set(CPACK_PACKAGE_NAME luasandbox-${PROJECT_NAME})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Lua SAX Module")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_PACKAGE_VENDOR        "Mozilla Services")
+set(CPACK_PACKAGE_CONTACT       "Mike Trinkala <trink@mozilla.com>")
+set(CPACK_OUTPUT_CONFIG_FILE    "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.cpack")
+set(CPACK_STRIP_FILES           TRUE)
+set(CPACK_DEBIAN_FILE_NAME      "DEB-DEFAULT")
+set(CPACK_RPM_FILE_NAME         "RPM-DEFAULT")
 
-set(CPACK_RPM_PACKAGE_LICENSE "MPLv2.0")
-set(CPACK_STRIP_FILES TRUE)
-set(CPACK_PACKAGE_VENDOR        "Vlad Sterzhanov aka Quadrocube")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_VENDOR}")
-
-set(CMAKE_SKIP_BUILD_RPATH              FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH      FALSE)
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
+set(CPACK_RPM_PACKAGE_LICENSE   "MIT License")
 
 if(MSVC)
-    # Predefined Macros: http://msdn.microsoft.com/en-us/library/b0084kay.aspx
-    # Compiler options: http://msdn.microsoft.com/en-us/library/fwkeyyhe.aspx
-    # set a high warning level and treat them as errors
     set(CMAKE_C_FLAGS           "/W3 /WX")
-
-    # debug complete debugging info, runtime error checking
-    set(CMAKE_C_FLAGS_DEBUG     "/Zi /RTC1")
-
-    # optimize for speed, auto inlining
-    set(CMAKE_C_FLAGS_RELEASE   "/O2 /Ob2 /DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE   "/MD /O2 /Ob2")
 else()
-    # Compiler options: http://gcc.gnu.org/onlinedocs/gcc/Invoking-GCC.html#Invoking-GCC
-    set(CMAKE_C_FLAGS   "-std=c99 -pedantic -Werror -Wall -Wextra")
-    set(CMAKE_C_FLAGS_DEBUG     "-g")
-    set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG")
-    set(CMAKE_C_FLAGS_PROFILE   "${CMAKE_C_FLAGS_RELEASE} -g -pg")
+    set(CMAKE_C_FLAGS           "-std=c99 -pedantic -Werror -Wall -Wextra -fPIC")
+    set(CMAKE_C_FLAGS_RELEASE   "-O2")
+    set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+endif()
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
-    if(NOT WIN32)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-        find_library(LM NAMES m)
-        set(UNIX_LIBRARIES ${LM})
-    else()
-        set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -D__USE_MINGW_ANSI_STDIO")
-    endif()
+if(LUA51) # build against installed lua 5.1
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "lua5.1")
+    set(CPACK_PACKAGE_NAME lua51-${PROJECT_NAME})
+    find_package(Lua51)
+    find_program(LUA NAMES lua lua.bat)
+    add_test(NAME test COMMAND ${LUA} test.lua)
+else() # lua_sandbox build
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "luasandbox (>= 1.0.2)")
+    find_package(luasandbox 1.0.2 REQUIRED CONFIG)
+    set(LUA_LIBRARIES ${LUASANDBOX_LIBRARIES})
+    set(LUA_INCLUDE_DIR ${LUASANDBOX_INCLUDE_DIR}/luasandbox)
 endif()
 
+find_library(LIBM_LIBRARY m)
+
 include(CPack)
-include(CTest)
+include_directories(${LUA_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
+add_definitions(-DLUA_SANDBOX -DDIST_VERSION="${PROJECT_VERSION}")
+add_library(sax SHARED src/symtseries.c lua/lua_sax.c lua/lua_sax.def)
+target_link_libraries(sax ${LUA_LIBRARIES})
+if(LIBM_LIBRARY)
+  target_link_libraries(sax ${LIBM_LIBRARY})
+endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-find_package(Lua REQUIRED)
-
-add_subdirectory(src)
-
-if(LUA_FOUND)
-    add_subdirectory(lua)
-ENDIF(LUA_FOUND)
+set(DPERMISSION DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+set(EMPTY_DIR ${CMAKE_BINARY_DIR}/empty)
+file(MAKE_DIRECTORY ${EMPTY_DIR})
+install(DIRECTORY ${EMPTY_DIR}/ DESTINATION ${INSTALL_MODULE_PATH} ${DPERMISSION})
+install(TARGETS sax DESTINATION ${INSTALL_MODULE_PATH})
