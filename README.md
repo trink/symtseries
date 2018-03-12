@@ -84,8 +84,10 @@ local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local values = {-9, -8, -7, -5, -5, 7.2}
 local b = sax.window.new(#values, 2, 8)
 for i=1,#values do b:add(values[i]) end
-local d = sax.mindist(a, b)
--- d == 1.560325
+local distance, above, below = sax.mindist(a, b)
+-- distance == 1.560325
+-- above == 1.103316
+-- below == 1.103316
 ```
 
 *Arguments*
@@ -95,7 +97,9 @@ local d = sax.mindist(a, b)
 
 *Return*
 
-- Lowerbounding approximation of the Euclidian distance between series represented in a and b
+- distance Lowerbounding approximation of the Euclidian distance between series represented in a and b
+- above Lowerbounding approximation of the Euclidian distance where a is above b
+- below Lowerbounding approximation of the Euclidian distance where a is below b
 
 #### version()
 ```lua

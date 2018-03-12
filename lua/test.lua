@@ -2,7 +2,7 @@ require "sax"
 require "string"
 require "math"
 
-assert(sax.version() == "0.3.0")
+assert(sax.version() == "0.4.0", sax.version())
 
 local a = sax.word.new({10.3, 7, 1, -5, -5, 7.2}, 2, 8)
 local b = sax.word.new("FC", 8)
@@ -164,6 +164,35 @@ local function test_nan_inf()
     w1 = sax.word.new("#E#", SAX_C)
     assert(0 == sax.mindist(w, w1))
     assert(w == w1)
+
+    w = sax.word.new("####", 4)
+    w1 = sax.word.new("####", "4")
+    assert(sax.mindist(w, w1) == 0, "received: " .. tostring(sax.mindist(w, w1)))
+
+    w = sax.word.new("ABCD", 4)
+    w1 = sax.word.new("####", 4) -- distance should be from DDAA
+    local expected = sax.mindist(w, sax.word.new("DDAA", 4))
+    local d = sax.mindist(w, w1)
+    assert(d == expected, string.format("Expected mindist %f, got %f", expected, d))
+    -- flip
+    local d = sax.mindist(w1, w)
+    assert(d == expected, string.format("Expected mindist %f, got %f", expected, d))
+
+    w = sax.word.new("CCCCC", 5)
+    w1 = sax.word.new("#####", 5) -- distance should be from AAAAA
+    local expected = sax.mindist(w, sax.word.new("AAAAA", 5))
+    local d, a, b = sax.mindist(w, w1)
+    assert(d == expected, string.format("Expected mindist %f, got %f", expected, d))
+    assert(a == expected, string.format("Expected mindist %f, got %f", expected, a))
+    assert(b == 0, string.format("Expected mindist %f, got %f", 0, b))
+
+    w = sax.word.new("ABDD", 4)
+    w1 = sax.word.new("DBAA", 4)
+    local d, a, b = sax.mindist(w, w1)
+    local ed, ea, eb = 2.336536, 1.907774, 1.349000
+    assert(math.abs(ed - d) < 1e-5, string.format("Expected mindist %f, got %f", ed, d))
+    assert(math.abs(ea - a) < 1e-5, string.format("Expected mindist %f, got %f", ea, a))
+    assert(math.abs(eb - b) < 1e-5, string.format("Expected mindist %f, got %f", eb, b))
 end
 
 test_nan_inf()

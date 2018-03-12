@@ -3,11 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
-project(symtseries)
+project(symtseries C)
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Symbolic analysis for time series data")
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
-set(CPACK_PACKAGE_VERSION_MINOR 3)
+set(CPACK_PACKAGE_VERSION_MINOR 4)
 set(CPACK_PACKAGE_VERSION_PATCH 0)
 
 set(CPACK_RPM_PACKAGE_LICENSE "MPLv2.0")
